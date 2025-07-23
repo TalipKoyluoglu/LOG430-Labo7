@@ -295,10 +295,11 @@ create_service_if_not_exists "inventaire-service" "http://inventaire-service:800
 create_service_if_not_exists "commandes-service" "http://commandes-service:8000"
 create_service_if_not_exists "supply-chain-service" "http://supply-chain-service:8000"
 create_service_if_not_exists "ecommerce-service" "http://ecommerce-service:8005"
+create_service_if_not_exists "saga-orchestrator-service" "http://service-saga-orchestrator:8009"
 
 # === Configuration CORS sur chaque service ===
 echo "🔒 Configuration CORS sur les services..."
-for service in catalogue-service inventaire-service commandes-service supply-chain-service ecommerce-service; do
+for service in catalogue-service inventaire-service commandes-service supply-chain-service ecommerce-service saga-orchestrator-service; do
   echo "   ➕ Ajout du plugin CORS sur $service"
   curl -s -X POST http://localhost:8081/services/$service/plugins \
     --data "name=cors" \
@@ -317,6 +318,7 @@ create_route_if_not_exists "inventaire-service" "inventaire-route" "/api/inventa
 create_route_if_not_exists "commandes-service" "commandes-route" "/api/commandes"
 create_route_if_not_exists "supply-chain-service" "supply-chain-route" "/api/supply-chain"
 create_route_if_not_exists "ecommerce-service" "ecommerce-route" "/api/ecommerce"
+create_route_if_not_exists "saga-orchestrator-service" "saga-route" "/api/saga"
 
 echo "🔌 Configuration des plugins..."
 

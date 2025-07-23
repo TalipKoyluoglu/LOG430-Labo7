@@ -50,4 +50,24 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: service
         regex: '(.*)'
-        replacement: 'kong-gateway' 
+        replacement: 'kong-gateway'
+
+  # Service Saga Orchestrator
+  - job_name: 'saga-orchestrator'
+    static_configs:
+      - targets: ['service-saga-orchestrator:8009']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    
+    # Relabels pour Saga Orchestrator
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*)'
+        replacement: 'saga-orchestrator-${1}'
+      
+      - source_labels: [__address__]
+        target_label: service
+        regex: '(.*)'
+        replacement: 'saga-orchestrator' 

@@ -312,6 +312,24 @@ services:
              python manage.py loaddata initial_data.json &&
              python manage.py runserver 0.0.0.0:8005"
 
+  # Base de données pour le service Saga Orchestrator
+  saga-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: saga_db
+      POSTGRES_USER: saga_user
+      POSTGRES_PASSWORD: saga_pass
+    ports:
+      - "5439:5432"
+    volumes:
+      - saga_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "saga_user", "-d", "saga_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # Kong API Gateway
   kong-database:
     image: postgres:15
@@ -381,6 +399,44 @@ services:
       sh /setup-kong.sh
     restart: "no"
 
+  service-saga-orchestrator:
+    build:
+      context: ./service-saga-orchestrator
+      dockerfile: Dockerfile
+    container_name: service-saga-orchestrator
+    ports:
+      - "8009:8009"
+    environment:
+      DJANGO_SETTINGS_MODULE: saga_service.settings
+      PYTHONPATH: /app
+      DEBUG: "True"
+      KONG_GATEWAY_URL: http://kong:8000
+      SAGA_TIMEOUT: "30"
+      MAX_RETRIES: "3"
+      # Configuration de la base de données
+      POSTGRES_DB: saga_db
+      POSTGRES_USER: saga_user
+      POSTGRES_PASSWORD: saga_pass
+      POSTGRES_HOST: saga-db
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./service-saga-orchestrator:/app
+    depends_on:
+      saga-db:
+        condition: service_healthy
+      inventaire-service:
+        condition: service_started
+      commandes-service:
+        condition: service_started
+      kong:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - default
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8009"
+
 volumes:
   prometheus_data:
   grafana_data:
@@ -390,5 +446,6 @@ volumes:
   supply_chain_data:
   inventaire_data:
   ecommerce_data:
+  saga_data:
   kong_data:
   kong_logs:

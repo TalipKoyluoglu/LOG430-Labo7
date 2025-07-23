@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}UC1 - Rapport Consolidé des Ventes{% endblock %}
+
+{% block content %}
+  <h1>Ajout de vente</h1>
+
+ {% if messages %}
+  <div style="margin-bottom: 15px;">
+    {% for message in messages %}
+      {% if message.tags == 'error' %}
+        <div style="color: red; font-weight: bold;">
+      {% else %}
+        <div style="color: green; font-weight: bold;">
+      {% endif %}
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+
+  <form method="GET" action="" style="margin-bottom: 30px;">
+    <label for="magasin">Magasin :</label>
+    <select name="magasin_id" required onchange="this.form.submit()">
+      <option value="">-- Sélectionner un magasin --</option>
+      {% for magasin in magasins %}
+        <option value="{{ magasin.id }}" {% if magasin_id == magasin.id|stringformat:'s' %}selected{% endif %}>{{ magasin.nom }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <form method="POST" action="{% url 'enregistrer_vente' %}">
+    {% csrf_token %}
+    <input type="hidden" name="magasin_id" value="{{ magasin_id }}">
+
+    <label for="produit">Produit :</label>
+    <select name="produit_id" id="produit_id" required onchange="updateMaxQuantite()">
+      <option value="">-- Sélectionner un produit --</option>
+      {% for produit in produits %}
+        <option value="{{ produit.id }}">{{ produit.nom }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="quantite">Quantité vendue :</label>
+    <input type="number" name="quantite" id="quantite" min="1" required>
+
+    <button type="submit">Enregistrer la vente</button>
+  </form>
+
+  <script>
+    // Mapping produit_id -> quantité max (injecté depuis Django)
+    const quantites = {{ quantites|safe }};
+    function updateMaxQuantite() {
+      const select = document.getElementById('produit_id');
+      const input = document.getElementById('quantite');
+      const produitId = select.value;
+      if (quantites[produitId]) {
+        input.max = quantites[produitId];
+      } else {
+        input.removeAttribute('max');
+      }
+    }
+    // Appel initial au chargement
+    document.addEventListener('DOMContentLoaded', updateMaxQuantite);
+  </script>
+
+  {% if not magasin_id %}
+    <p style="color: #888;">Veuillez d'abord sélectionner un magasin pour voir les produits disponibles.</p>
+  {% endif %}
+
+  <h2>Stocks locaux par magasin</h2>
+  <div style="margin-top: 20px;">
+    {% for magasin in magasins_avec_stocks %}
+      <div style="margin-bottom: 25px;">
+        <h3 style="margin-bottom: 8px;">{{ magasin.nom }}</h3>
+        {% if magasin.produits %}
+          <ul>
+            {% for produit in magasin.produits %}
+              <li>{{ produit.nom_produit }} : {{ produit.quantite }} en stock</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p><em>Aucun produit en stock</em></p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

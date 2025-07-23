@@ -1,0 +1,68 @@
+@startuml scenario-enregistrer-vente
+title Scénario 1: Enregistrement d'une Vente - Architecture Microservices DDD
+
+participant "Employé Magasin" as Employee
+participant "Frontend Django" as Frontend
+participant "CommandesClient" as CmdClient
+participant "Kong Gateway" as Kong
+participant "service-commandes:8003" as CommandesService
+participant "EnregistrerVenteUseCase" as VenteUC
+participant "HttpStockService" as StockHTTP
+participant "service-inventaire:8002" as InventaireService
+participant "TransfererStockUseCase" as StockUC
+participant "commandes_db" as CmdDB
+participant "inventaire_db" as InvDB
+
+== Phase 1: Saisie des données vente ==
+Employee -> Frontend : Accès formulaire vente\n/ventes/ajouter/
+Frontend -> Employee : Affichage formulaire avec\nmagasins et produits
+
+Employee -> Frontend : Saisie vente\nPOST /ventes/enregistrer/\n{magasin_id, produit_id, quantite, client_id}
+
+== Phase 2: Orchestration Frontend ==
+Frontend -> CmdClient : enregistrer_vente()\nmagasin_id="33333333-...", produit_id="11111111-...",\nquantite=5, client_id="00000000-..."
+
+== Phase 3: Communication via Kong Gateway ==
+CmdClient -> Kong : POST /api/commandes/api/v1/ventes-ddd/enregistrer/\nHeaders: X-API-Key, Content-Type\nBody: {données vente}
+Kong -> CommandesService : Route /api/commandes/\nLoad balancing et routing
+
+== Phase 4: Use Case Métier DDD ==
+CommandesService -> VenteUC : execute(donnees_vente)\nValidation entités et value objects
+note right of VenteUC : **Architecture DDD:**\n• Validation règles métier\n• Entités riches (Vente, Magasin)\n• Value Objects (CommandeVente, StatutVente)
+
+== Phase 5: Communication Inter-Services (HTTP) ==
+VenteUC -> StockHTTP : reduire_stock(produit_id, quantite)\nHTTP POST vers service-inventaire
+StockHTTP -> InventaireService : POST http://inventaire-service:8000/api/ddd/\nreduire-stock-local/\n{produit_id, quantite, magasin_id}
+
+== Phase 6: Validation et Transfert Stock ==
+InventaireService -> StockUC : execute(reduire_stock_local)\nValidation stock disponible
+StockUC -> InvDB : SELECT quantite FROM stock_local\nWHERE produit_id = ? AND magasin_id = ?
+
+alt Stock suffisant
+    StockUC -> InvDB : UPDATE stock_local SET quantite = quantite - ?\nWHERE produit_id = ? AND magasin_id = ?
+    StockUC -> InventaireService : {"success": true, "stock_restant": 45}
+    InventaireService -> StockHTTP : HTTP 200 OK\n{"success": true}
+    
+    == Phase 7: Finalisation Vente ==
+    StockHTTP -> VenteUC : Stock réduit avec succès
+    VenteUC -> CmdDB : INSERT INTO vente (magasin_id, client_id, total, statut)\nINSERT INTO ligne_vente (produit_id, quantite, prix_unitaire)
+    VenteUC -> CommandesService : {"success": true, "vente_id": "...", "total": 150.00}
+    
+else Stock insuffisant
+    StockUC -> InvDB : Aucune modification
+    StockUC -> InventaireService : {"success": false, "error": "Stock insuffisant"}
+    InventaireService -> StockHTTP : HTTP 400 Bad Request\n{"error": "Stock insuffisant"}
+    StockHTTP -> VenteUC : Erreur stock insuffisant
+    VenteUC -> CommandesService : {"success": false, "error": "Stock insuffisant"}
+end
+
+== Phase 8: Retour vers Frontend ==
+CommandesService -> Kong : HTTP Response\n{"success": true/false, ...}
+Kong -> CmdClient : Response avec résultat
+CmdClient -> Frontend : {"success": true, "message": "Vente enregistrée"}
+Frontend -> Employee : Message de confirmation ou d'erreur\n"Vente enregistrée avec succès"
+
+== Annotations Techniques ==
+note over Employee, InvDB : **Workflow DDD Complet:**\n• **5 microservices** impliqués\n• **Communication HTTP** via Kong Gateway\n• **Transaction distribuée** avec gestion d'erreurs\n• **Architecture hexagonale** (Use Cases + Repositories)\n• **Cohérence des données** entre services
+
+@enduml 

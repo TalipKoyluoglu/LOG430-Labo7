@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Stock central et demande de réapprovisionnement</h1>
+
+{% if messages %}
+  <div>
+    {% for message in messages %}
+      {% if message.tags == 'error' %}
+        <p style="color: red; font-weight: bold;">{{ message }}</p>
+      {% else %}
+        <p style="color: green; font-weight: bold;">{{ message }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+<table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+  <thead>
+    <tr style="background-color: #f8f9fa; text-align: left;">
+      <th style="border: 1px solid #dee2e6; padding: 10px;">Produit</th>
+      <th style="border: 1px solid #dee2e6; padding: 10px;">Quantité de stock au centre de logistique</th>
+      <th style="border: 1px solid #dee2e6; padding: 10px;">Réapprovisionner vers</th>
+      <th style="border: 1px solid #dee2e6; padding: 10px;">Quantité</th>
+      <th style="border: 1px solid #dee2e6; padding: 10px;">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for stock in stocks %}
+    <tr>
+      <td style="border: 1px solid #dee2e6; padding: 10px;">{{ stock.nom_produit }}</td>
+      <td style="border: 1px solid #dee2e6; padding: 10px;">{{ stock.quantite }}</td>
+      <form method="post" action="{% url 'reapprovisionner' %}">
+        {% csrf_token %}
+        <td style="border: 1px solid #dee2e6; padding: 10px;">
+          <select name="magasin_id" required>
+            <option value="">-- Sélectionner un magasin --</option>
+            {% for magasin in magasins %}
+              <option value="{{ magasin.id }}">{{ magasin.nom }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td style="border: 1px solid #dee2e6; padding: 10px;">
+          <input type="number" name="quantite" min="1" max="{{ stock.quantite }}" placeholder="Quantité" required>
+        </td>
+        <td style="border: 1px solid #dee2e6; padding: 10px;">
+          <input type="hidden" name="produit_id" value="{{ stock.produit_id }}">
+          <button type="submit">Créer la demande</button>
+        </td>
+      </form>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

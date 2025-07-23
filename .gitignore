@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+venv/  
+k6
+k6.exe
+bin/
+*.exe
+k6.zip
+
+# GitHub Actions runner (should be installed outside the repository)
+actions-runner/

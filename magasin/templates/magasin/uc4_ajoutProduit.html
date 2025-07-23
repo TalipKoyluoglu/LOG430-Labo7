@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Ajouter un produit</h1>
+
+{% if messages %}
+  <div>
+    {% for message in messages %}
+      {% if message.tags == 'error' %}
+        <p style="color: red; font-weight: bold;">{{ message }}</p>
+      {% else %}
+        <p style="color: green; font-weight: bold;">{{ message }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+<form method="post" action="" style="margin-top: 20px;">
+  {% csrf_token %}
+
+  <label for="nom">Nom du produit :</label><br>
+  <input type="text" name="nom" id="nom" required><br><br>
+
+  <label for="categorie">Catégorie :</label><br>
+  <input type="text" name="categorie" id="categorie" required><br><br>
+
+  <label for="prix">Prix (en $) :</label><br>
+  <input type="number" name="prix" id="prix" step="0.01" min="0" required><br><br>
+
+  <label for="description">Description :</label><br>
+  <textarea name="description" id="description" rows="4" cols="50"></textarea><br><br>
+
+  <button type="submit">Ajouter le produit</button>
+</form>
+{% endblock %}

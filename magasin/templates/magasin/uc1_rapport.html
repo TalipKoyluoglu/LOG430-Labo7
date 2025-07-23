@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}UC1 - Rapport Consolidé des Ventes{% endblock %}
+
+{% block content %}
+  <h1>Rapport Consolidé des Ventes</h1>
+
+  {% for rapport in rapports %}
+    <h2>Magasin : {{ rapport.magasin }}</h2>
+    <p><strong>Total des ventes :</strong> {{ rapport.total }} $</p>
+
+    <h3>Produits vendus :</h3>
+    {% if rapport.produits_vendus %}
+      <ul>
+        {% for produit in rapport.produits_vendus %}
+          <li>
+            {{ produit.nom }} : {{ produit.quantite_totale }} (CA: {{ produit.chiffre_affaires }} $)
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p><em>Aucun produit vendu</em></p>
+    {% endif %}
+
+    <h3>Stock local courant :</h3>
+    {% if rapport.stock_local %}
+      <ul>
+        {% for produit, quantite in rapport.stock_local.items %}
+          <li>{{ produit }} : {{ quantite }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p><em>Aucun stock enregistré</em></p>
+    {% endif %}
+
+    <hr>
+  {% endfor %}
+{% endblock %}

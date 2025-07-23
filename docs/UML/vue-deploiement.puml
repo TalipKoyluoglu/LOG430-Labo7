@@ -1,0 +1,136 @@
+@startuml
+title Vue Physique - Architecture Évoluée
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+left to right direction
+
+' === OBSERVABILITÉ (en haut) ===
+node "Observabilité" {
+  component "Grafana" as grafana
+  note right of grafana : port 3000
+  component "Prometheus" as prometheus  
+  note right of prometheus : port 9090
+}
+
+' === CLIENT APP (à gauche) ===
+node "client-app" {
+  component "NGINX" as nginx
+  note right of nginx : Port 80
+  component "Django App" as djangoApp
+  note right of djangoApp : Port 8000 (interne)
+}
+
+' === CACHE REDIS ===
+node "cache-redis" {
+  component "Redis Cache" as redis
+  note right of redis : Port 6379
+}
+
+' === KONG API GATEWAY (centre) ===
+node "Kong API Gateway" as kong
+note right of kong : Port 8080 (proxy)\nPort 8081 (admin)
+
+' === MICROSERVICES (droite) ===
+node "catalogue-service-1" {
+  component "Catalogue Service 1" as cat1
+  note right of cat1 : Port 8001
+}
+
+node "catalogue-service-2" {
+  component "Catalogue Service 2" as cat2
+  note right of cat2 : Port 8006
+}
+
+node "catalogue-service-3" {
+  component "Catalogue Service 3" as cat3
+  note right of cat3 : Port 8007
+}
+
+node "inventaire-service" {
+  component "Inventaire Service" as inv
+  note right of inv : Port 8002
+}
+
+node "commandes-service" {
+  component "Commandes Service" as cmd
+  note right of cmd : Port 8003
+}
+
+node "supply-chain-service" {
+  component "Supply Chain Service" as sup
+  note right of sup : Port 8004
+}
+
+rectangle "ecommerce-service" {
+  component "ECommerce Service" as eco
+  note right of eco : Port 8005
+}
+
+' === BASES DE DONNÉES (extrême droite) ===
+node "Docker Container : postgresql" as catalogueDbContainer {
+  database "Catalogue DB" as catalogueDb
+  note right of catalogueDb : Port 5434
+}
+
+node "Docker Container : postgresql" as inventaireDbContainer {
+  database "Inventaire DB" as inventaireDb
+  note right of inventaireDb : Port 5435
+}
+
+node "Docker Container : postgresql" as commandesDbContainer {
+  database "Commandes DB" as commandesDb
+  note right of commandesDb : Port 5436
+}
+
+node "Docker Container : postgresql" as supplyChainDbContainer {
+  database "Supply Chain DB" as supplyChainDb
+  note right of supplyChainDb : Port 5437
+}
+
+node "Docker Container : postgresql" as ecommerceDbContainer {
+  database "ECommerce DB" as ecommerceDb
+  note right of ecommerceDb : Port 5438
+}
+
+node "Docker Container : postgresql" as kongDbContainer {
+  database "Kong DB" as kongDb
+  note right of kongDb : Port 5433
+}
+
+' === CONNEXIONS DE GAUCHE À DROITE ===
+nginx --> djangoApp : proxy_pass
+djangoApp --> redis : Cache Django
+djangoApp --> kong : HTTP Clients
+
+' === KONG ROUTING AVEC LOAD BALANCING ===
+kong --> cat1 : Route /api/catalogue\n(Round-robin)
+kong --> cat2 : Load balancing  
+kong --> cat3 : Load balancing
+kong --> inv : Route /api/inventaire
+kong --> cmd : Route /api/commandes
+kong --> sup : Route /api/supply-chain
+kong --> eco : Route /api/ecommerce
+
+' === MICROSERVICES VERS BASES ===
+cat1 --> catalogueDb : PostgreSQL ORM
+cat2 --> catalogueDb : PostgreSQL ORM
+cat3 --> catalogueDb : PostgreSQL ORM
+inv --> inventaireDb : PostgreSQL ORM
+cmd --> commandesDb : PostgreSQL ORM
+sup --> supplyChainDb : PostgreSQL ORM
+eco --> ecommerceDb : PostgreSQL ORM
+kong --> kongDb : PostgreSQL config
+
+' === COMMUNICATION INTER-SERVICES ===
+cmd ..> inv : HTTP (réduire stock)
+sup ..> inv : HTTP (transferts stock)
+eco ..> cat1 : HTTP (produits panier)
+eco ..> cmd : HTTP (créer commande)
+
+' === MONITORING ===
+prometheus --> kong : scrape
+prometheus --> nginx : scrape
+grafana --> prometheus : Dashboard data
+
+@enduml 

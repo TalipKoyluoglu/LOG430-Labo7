@@ -1,0 +1,53 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Application Django
+  - job_name: 'django-app'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    
+    # Relabels pour ajouter des métadonnées
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*)'
+        replacement: 'django-app-${1}'
+      
+      - source_labels: [__address__]
+        target_label: service
+        regex: '(.*)'
+        replacement: 'django-app'
+
+  # Kong API Gateway
+  - job_name: 'kong'
+    static_configs:
+      - targets: ['kong:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    
+    # Relabels pour Kong
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*)'
+        replacement: 'kong-gateway-${1}'
+      
+      - source_labels: [__address__]
+        target_label: service
+        regex: '(.*)'
+        replacement: 'kong-gateway' 

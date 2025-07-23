@@ -1,0 +1,129 @@
+@startuml scenario-validation-demande-reappro
+title Scénario 2: Validation Demande Réapprovisionnement - Workflow DDD 3 Étapes
+
+participant "Gestionnaire" as Manager
+participant "Frontend Django" as Frontend
+participant "SupplyChainClient" as SupplyClient
+participant "Kong Gateway" as Kong
+participant "service-supply-chain:8004" as SupplyService
+participant "ValiderDemandeUseCase" as ValidationUC
+participant "WorkflowValidation" as Workflow
+participant "HttpInventaireService" as InvHTTP
+participant "service-inventaire:8002" as InventaireService
+participant "TransfererStockUseCase" as TransferUC
+participant "supply_chain_db" as SupplyDB
+participant "inventaire_db" as InvDB
+
+== Phase 1: Consultation des demandes ==
+Manager -> Frontend : Accès workflow demandes\n/demandes/
+Frontend -> SupplyClient : lister_demandes_en_attente()
+SupplyClient -> Kong : GET /api/supply-chain/api/ddd/supply-chain/demandes-en-attente/
+Kong -> SupplyService : Route vers service-supply-chain
+
+note right of SupplyService : **Récupération via service-inventaire**\npour cohérence des données
+
+SupplyService -> InvHTTP : lister_demandes_en_attente()\nHTTP GET vers service-inventaire
+InvHTTP -> InventaireService : GET http://inventaire-service:8000/api/ddd/demandes/
+InventaireService -> InvDB : SELECT * FROM demande_reapprovisionnement\nWHERE statut = 'En attente'
+InvDB -> InventaireService : [demande1, demande2, ...]
+InventaireService -> InvHTTP : {"demandes": [...]}
+InvHTTP -> SupplyService : List[DemandeReapprovisionnement]
+SupplyService -> Frontend : {"success": true, "count": 2, "demandes": [...]}
+Frontend -> Manager : Affichage liste avec 2 demandes en attente
+
+== Phase 2: Validation d'une demande ==
+Manager -> Frontend : Clic "Valider" sur demande\nGET /demandes/valider/550e8400.../
+Frontend -> SupplyClient : valider_demande("550e8400-e29b-41d4-a716-446655440001")
+SupplyClient -> Kong : POST /api/supply-chain/api/ddd/supply-chain/valider-demande/550e8400.../
+Kong -> SupplyService : Route avec demande_id
+
+== Phase 3: Workflow DDD 3 Étapes avec Rollback ==
+SupplyService -> ValidationUC : execute(demande_id)
+ValidationUC -> Workflow : creer_workflow(demande_id)\nStatut: "En cours"
+
+note right of Workflow : **Entité WorkflowValidation DDD:**\n• etapes_completees: []\n• statut_workflow: "en_cours"\n• rollback_effectue: false
+
+=== Étape 1: Validation règles métier ===
+Workflow -> ValidationUC : executer_etape("validation_regles_metier")
+ValidationUC -> InvHTTP : verifier_demande_existe(demande_id)
+InvHTTP -> InventaireService : GET demande details
+InventaireService -> InvDB : SELECT * FROM demande_reapprovisionnement\nWHERE id = ? AND statut = 'En attente'
+
+alt Demande valide
+    InvDB -> InventaireService : {demande details}
+    InventaireService -> InvHTTP : {"valid": true, "quantite": 50, "produit_id": "..."}
+    InvHTTP -> ValidationUC : Demande validée
+    ValidationUC -> Workflow : marquer_etape_completee("validation_regles_metier")
+    Workflow -> SupplyDB : UPDATE workflow SET etapes_completees = '["validation_regles_metier"]'
+    
+    === Étape 2: Diminution stock central ===
+    Workflow -> ValidationUC : executer_etape("diminuer_stock_central")
+    ValidationUC -> InvHTTP : diminuer_stock_central(produit_id, quantite)
+    InvHTTP -> InventaireService : POST diminuer-stock-central/\n{produit_id, quantite: 50}
+    InventaireService -> TransferUC : execute(diminuer_stock_central)
+    TransferUC -> InvDB : UPDATE stock_central SET quantite = quantite - 50\nWHERE produit_id = ?
+    
+    alt Stock central suffisant (>=50)
+        InvDB -> TransferUC : Stock central: 200 → 150
+        TransferUC -> InventaireService : {"success": true, "nouveau_stock": 150}
+        InventaireService -> InvHTTP : HTTP 200 OK
+        InvHTTP -> ValidationUC : Stock central diminué
+        ValidationUC -> Workflow : marquer_etape_completee("diminuer_stock_central")
+        Workflow -> SupplyDB : UPDATE etapes_completees = '["validation_regles_metier", "diminuer_stock_central"]'
+        
+        === Étape 3: Augmentation stock local ===
+        Workflow -> ValidationUC : executer_etape("augmenter_stock_local")
+        ValidationUC -> InvHTTP : augmenter_stock_local(produit_id, magasin_id, quantite)
+        InvHTTP -> InventaireService : POST augmenter-stock-local/\n{produit_id, magasin_id, quantite: 50}
+        InventaireService -> TransferUC : execute(augmenter_stock_local)
+        TransferUC -> InvDB : UPDATE stock_local SET quantite = quantite + 50\nWHERE produit_id = ? AND magasin_id = ?
+        InvDB -> TransferUC : Stock local: 10 → 60
+        TransferUC -> InventaireService : {"success": true, "nouveau_stock_local": 60}
+        InventaireService -> InvHTTP : HTTP 200 OK
+        InvHTTP -> ValidationUC : Stock local augmenté
+        ValidationUC -> Workflow : marquer_etape_completee("augmenter_stock_local")
+        Workflow -> SupplyDB : UPDATE etapes_completees = '["validation_regles_metier", "diminuer_stock_central", "augmenter_stock_local"]'
+        
+        === Finalisation workflow ===
+        ValidationUC -> InvHTTP : mettre_a_jour_statut_demande(demande_id, "Approuvée")
+        InvHTTP -> InventaireService : PATCH /demandes/550e8400.../statut/\n{"statut": "Approuvée"}
+        InventaireService -> InvDB : UPDATE demande_reapprovisionnement\nSET statut = 'Approuvée'
+        
+        ValidationUC -> Workflow : finaliser_workflow_succes()
+        Workflow -> SupplyDB : UPDATE workflow SET statut_workflow = 'termine_succes'
+        
+        ValidationUC -> SupplyService : {"success": true, "etapes_executees": [...], "rollback_effectue": false}
+        
+    else Stock central insuffisant (<50)
+        InvDB -> TransferUC : Erreur: Stock insuffisant (30 disponible)
+        TransferUC -> InventaireService : {"success": false, "error": "Stock central insuffisant"}
+        InventaireService -> InvHTTP : HTTP 400 Bad Request
+        InvHTTP -> ValidationUC : Erreur stock insuffisant
+        
+        === ROLLBACK AUTOMATIQUE ===
+        ValidationUC -> Workflow : rollback_si_echec()
+        note right of Workflow : **Rollback automatique étape 1:**\nAucune action nécessaire\n(validation métier sans effet de bord)
+        
+        Workflow -> SupplyDB : UPDATE workflow SET\nstatut_workflow = 'echec',\nrollback_effectue = true
+        ValidationUC -> SupplyService : {"success": false, "error": "Stock central insuffisant", "rollback_effectue": true}
+    end
+    
+else Demande invalide/inexistante
+    InvDB -> InventaireService : Aucun résultat
+    InventaireService -> InvHTTP : {"valid": false, "error": "Demande introuvable"}
+    InvHTTP -> ValidationUC : Demande invalide
+    ValidationUC -> Workflow : echec_workflow("Demande introuvable")
+    Workflow -> SupplyDB : UPDATE workflow SET statut_workflow = 'echec'
+    ValidationUC -> SupplyService : {"success": false, "error": "Demande introuvable"}
+end
+
+== Phase 4: Retour vers gestionnaire ==
+SupplyService -> Kong : Response avec résultat workflow
+Kong -> SupplyClient : {"success": true/false, ...}
+SupplyClient -> Frontend : Résultat validation
+Frontend -> Manager : Message de confirmation/erreur\n"Demande approuvée et stock transféré" ou\n"Validation impossible: stock central insuffisant"
+
+== Annotations Techniques ==
+note over Manager, InvDB : **Workflow DDD Avancé:**\n• **Entité WorkflowValidation** avec logique métier\n• **3 étapes atomiques** avec rollback automatique\n• **Communication inter-services** synchrone HTTP\n• **Gestion d'erreurs** spécifique au domaine\n• **Transaction distribuée** avec compensation
+
+@enduml 

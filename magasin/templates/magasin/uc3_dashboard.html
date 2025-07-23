@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Tableau de bord des performances des magasins</h1>
+
+<table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+  <thead>
+    <tr style="background-color: #f2f2f2;">
+      <th style="border: 1px solid #ccc; padding: 10px;">Magasin</th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Chiffre d’affaires </th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Ruptures de stock </th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Surstocks </th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Tendances hebdo </th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for ligne in indicateurs %}
+    <tr>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ ligne.magasin }}</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ ligne.chiffre_affaires|floatformat:2 }} $</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ ligne.ruptures }} produit(s)</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ ligne.surstock }} produit(s)</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ ligne.tendances }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

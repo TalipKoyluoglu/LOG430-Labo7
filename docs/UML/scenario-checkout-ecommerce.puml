@@ -1,0 +1,46 @@
+@startuml scenario-checkout-ecommerce
+title Scénario 3: Workflow E-commerce Complet - Panier à Commande Finale
+
+actor "Client Web" as Client
+participant "Frontend E-commerce" as Frontend
+participant "EcommerceClient" as EcoClient
+participant "Kong Gateway" as Kong
+participant "service-ecommerce:8005" as EcommerceService
+participant "CreerCompteClientUseCase" as ClientUC
+participant "AjouterProduitPanierUseCase" as PanierUC
+participant "service-catalogue:8001" as CatalogueService
+participant "ecommerce_db" as EcoDB
+participant "produits_db" as ProdDB
+
+== Phase 1: Création compte client ==
+Client -> Frontend : Inscription e-commerce\n/clients/creer-compte/
+Frontend -> EcoClient : creer_compte_client(prenom, nom, email, adresse)
+EcoClient -> Kong : POST /api/ecommerce/api/clients/\n{prenom, nom, email, adresse_complete}
+Kong -> EcommerceService : Route vers service-ecommerce
+
+EcommerceService -> ClientUC : execute(donnees_client)
+note right of ClientUC : **Validation DDD:**\n• Value Object: EmailClient\n• Value Object: AdresseLivraison\n• Entité: Client avec règles métier
+
+ClientUC -> EcoDB : INSERT INTO client (prenom, nom, email, adresse_rue, adresse_ville)\nVALUES (?, ?, ?, ?, ?)
+EcoDB -> ClientUC : client_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+ClientUC -> EcommerceService : {"success": true, "client_id": "aaaaaaaa-..."}
+EcommerceService -> Frontend : Compte créé avec succès
+Frontend -> Client : "Compte créé ! Vous pouvez maintenant commander"
+
+== Phase 2: Ajout produits au panier ==
+Client -> Frontend : Recherche produit "Écran Gaming"
+Frontend -> EcoClient : rechercher_produits(nom="Écran Gaming")
+EcoClient -> Kong : GET /api/catalogue/api/ddd/catalogue/rechercher/?nom=Écran Gaming
+Kong -> CatalogueService : Route vers catalogue (load balancé)
+
+CatalogueService -> ProdDB : SELECT * FROM produit WHERE nom ILIKE '%Écran Gaming%'
+ProdDB -> CatalogueService : [{"id": "11111111-...", "nom": "Écran Gaming 24\"", "prix": 299.99}]
+CatalogueService -> Frontend : Liste produits trouvés
+
+Client -> Frontend : Clic "Ajouter au panier"\nproduit_id="11111111-...", quantite=2
+Frontend -> EcoClient : ajouter_produit_panier(client_id, produit_id, quantite)
+EcoClient -> Kong : POST /api/ecommerce/api/panier/clients/aaaaaaaa.../panier/\n{produit_id, quantite: 2}
+Kong -> EcommerceService : Route vers service-ecommerce
+
+EcommerceService -> PanierUC : execute(client_id, produit_id, quantite)
+@enduml 

@@ -1,0 +1,152 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Kong Load Balancing Dashboard",
+    "tags": ["kong", "load-balancing", "api-gateway"],
+    "timezone": "browser",
+    "refresh": "5s",
+    "time": {
+      "from": "now-15m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Requêtes par seconde",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(kong_http_requests_total[5m])",
+            "legendFormat": "Requêtes/sec",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "yAxes": [
+          {
+            "label": "Requêtes/sec",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Temps de réponse",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(kong_request_latency_ms_bucket[5m]))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(kong_request_latency_ms_bucket[5m]))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(kong_request_latency_ms_bucket[5m]))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "yAxes": [
+          {
+            "label": "Latence (ms)",
+            "min": 0
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Distribution des requêtes par upstream",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum by (upstream) (kong_upstream_target_health)",
+            "legendFormat": "{{upstream}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Santé des targets",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "kong_upstream_target_health",
+            "legendFormat": "{{target}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Codes de statut HTTP",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum by (code) (rate(kong_http_requests_total[5m]))",
+            "legendFormat": "{{code}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        },
+        "yAxes": [
+          {
+            "label": "Requêtes/sec",
+            "min": 0
+          }
+        ]
+      }
+    ]
+  }
+} 

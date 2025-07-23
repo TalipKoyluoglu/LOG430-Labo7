@@ -1,0 +1,40 @@
+# Configuration coverage.py pour tests d'intégration magasin
+# LOG430 - Labo5 Microservices
+
+[run]
+source = magasin
+omit = 
+    */migrations/*
+    */venv/*
+    */env/*
+    */__pycache__/*
+    */tests/*
+    manage.py
+    config/wsgi.py
+    config/asgi.py
+    */static/*
+    */templates/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+show_missing = True
+skip_covered = False
+skip_empty = True
+
+[html]
+directory = coverage_reports/magasin
+title = Tests d'intégration Magasin - LOG430 Labo5
+
+[xml]
+output = coverage_reports/magasin/coverage.xml 

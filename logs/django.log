@@ -1,0 +1,4 @@
+{"timestamp": "2025-06-22 15:28:51,154", "level": "INFO", "logger": "django.utils.autoreload", "message": "Watching for file changes with StatReloader", "module": "autoreload", "function": "run_with_reloader", "line": "667"}
+{"timestamp": "2025-06-22 15:29:16,583", "level": "INFO", "logger": "django.utils.autoreload", "message": "/app/config/settings.py changed, reloading.", "module": "autoreload", "function": "trigger_reload", "line": "265"}
+{"timestamp": "2025-06-22 15:29:17,115", "level": "INFO", "logger": "django.utils.autoreload", "message": "Watching for file changes with StatReloader", "module": "autoreload", "function": "run_with_reloader", "line": "667"}
+{"timestamp": "2025-06-22 15:42:31,360", "level": "INFO", "logger": "django.utils.autoreload", "message": "/app/config/settings.py changed, reloading.", "module": "autoreload", "function": "trigger_reload", "line": "265"}

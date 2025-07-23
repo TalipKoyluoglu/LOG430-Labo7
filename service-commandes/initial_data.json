@@ -1,0 +1,18 @@
+[
+  {
+    "model": "ventes.magasin",
+    "pk": "33333333-3333-3333-3333-333333333331",
+    "fields": {
+      "nom": "Magasin Central",
+      "adresse": "123 Rue Principale, Ville"
+    }
+  },
+  {
+    "model": "ventes.magasin",
+    "pk": "33333333-3333-3333-3333-333333333332",
+    "fields": {
+      "nom": "Magasin Nord",
+      "adresse": "456 Avenue du Nord, Ville"
+    }
+  }
+] 

@@ -1,0 +1,199 @@
+@startuml vue-implementation
+left to right direction
+allowmixing
+title Vue d'Implémentation - Architecture Microservices DDD
+
+' === FRONTEND ORCHESTRATEUR ===
+package "Frontend Orchestrateur (Django)" {
+  package "Vues Orchestratrices" {
+    class "RapportConsolideView" <<View>>
+    class "GestionStockView" <<View>>
+    class "IndicateursView" <<View>>
+    class "GestionProduitsView" <<View>>
+    class "WorkflowDemandesView" <<View>>
+  }
+  
+  package "Clients HTTP Infrastructure" {
+    class "CatalogueClient" <<HTTPClient>>
+    class "InventaireClient" <<HTTPClient>>
+    class "CommandesClient" <<HTTPClient>>
+    class "SupplyChainClient" <<HTTPClient>>
+    class "EcommerceClient" <<HTTPClient>>
+  }
+}
+
+' === KONG API GATEWAY ===
+package "Kong API Gateway" <<Infrastructure>> {
+  component "Kong Router" {
+    class "CatalogueUpstream" <<LoadBalancer>>
+    class "InventaireRoute" <<Route>>
+    class "CommandesRoute" <<Route>>
+    class "SupplyChainRoute" <<Route>>
+    class "EcommerceRoute" <<Route>>
+  }
+}
+
+' === SERVICE CATALOGUE (LOAD BALANCÉ) ===
+package "Service Catalogue - Port 8001" <<Microservice>> {
+  package "Interface Layer" {
+    class "DDDCatalogueAPI" <<RestAPI>>
+    class "ProduitViewSet" <<ViewSet>>
+  }
+  package "Application Layer" {
+    class "RechercherProduitsUseCase" <<UseCase>>
+    class "AjouterProduitUseCase" <<UseCase>>
+    class "ModifierPrixUseCase" <<UseCase>>
+  }
+  package "Domain Layer" {
+    class "Produit" <<Entity>> {
+      +archiver()
+      +valider_prix()
+      +est_actif()
+    }
+    class "PrixMonetaire" <<ValueObject>>
+    class "NomProduit" <<ValueObject>>
+  }
+  package "Infrastructure Layer" {
+    class "DjangoProduitRepository" <<Repository>>
+  }
+}
+
+' === SERVICE INVENTAIRE ===
+package "Service Inventaire - Port 8002" <<Microservice>> {
+  package "Interface Layer" {
+    class "DDDInventaireAPI" <<RestAPI>>
+    class "StockViewSet" <<ViewSet>>
+  }
+  package "Application Layer" {
+    class "ConsulterStocksCentralUseCase" <<UseCase>>
+    class "CreerDemandeReapproUseCase" <<UseCase>>
+    class "TransfererStockUseCase" <<UseCase>>
+  }
+  package "Domain Layer" {
+    class "StockCentral" <<Entity>>
+    class "StockLocal" <<Entity>>
+    class "DemandeReapprovisionnement" <<Entity>>
+    class "Quantite" <<ValueObject>>
+  }
+  package "Infrastructure Layer" {
+    class "DjangoStockRepository" <<Repository>>
+    class "DjangoDemandeRepository" <<Repository>>
+  }
+}
+
+' === SERVICE COMMANDES ===
+package "Service Commandes - Port 8003" <<Microservice>> {
+  package "Interface Layer" {
+    class "DDDVenteViewSet" <<ViewSet>>
+    class "DDDIndicateursAPI" <<RestAPI>>
+    class "DDDRapportConsolideAPI" <<RestAPI>>
+  }
+  package "Application Layer" {
+    class "EnregistrerVenteUseCase" <<UseCase>>
+    class "GenererIndicateursUseCase" <<UseCase>>
+    class "GenererRapportConsolideUseCase" <<UseCase>>
+  }
+  package "Domain Layer" {
+    class "Vente" <<Entity>> {
+      +peut_etre_annulee()
+      +calculer_total()
+    }
+    class "Magasin" <<Entity>>
+    class "CommandeVente" <<ValueObject>>
+  }
+  package "Infrastructure Layer" {
+    class "DjangoVenteRepository" <<Repository>>
+    class "HttpStockService" <<ExternalService>>
+  }
+}
+
+' === SERVICE SUPPLY CHAIN ===
+package "Service Supply Chain - Port 8004" <<Microservice>> {
+  package "Interface Layer" {
+    class "DDDDemandesEnAttenteAPI" <<RestAPI>>
+    class "DDDValiderDemandeAPI" <<RestAPI>>
+    class "DDDRejeterDemandeAPI" <<RestAPI>>
+  }
+  package "Application Layer" {
+    class "ListerDemandesUseCase" <<UseCase>>
+    class "ValiderDemandeUseCase" <<UseCase>> {
+      +workflow_3_etapes()
+      +rollback_automatique()
+    }
+    class "RejeterDemandeUseCase" <<UseCase>>
+  }
+  package "Domain Layer" {
+    class "WorkflowValidation" <<Entity>>
+    class "DemandeReapprovisionnement" <<Entity>>
+    class "MotifRejet" <<ValueObject>>
+  }
+  package "Infrastructure Layer" {
+    class "HttpDemandeRepository" <<Repository>>
+    class "HttpInventaireService" <<ExternalService>>
+  }
+}
+
+' === SERVICE ECOMMERCE ===
+package "Service E-commerce - Port 8005" <<Microservice>> {
+  package "Interface Layer" {
+    class "DDDClientAPI" <<RestAPI>>
+    class "DDDPanierAPI" <<RestAPI>>
+    class "DDDCheckoutAPI" <<RestAPI>>
+  }
+  package "Application Layer" {
+    class "CreerCompteClientUseCase" <<UseCase>>
+    class "AjouterProduitPanierUseCase" <<UseCase>>
+    class "CheckoutEcommerceUseCase" <<UseCase>>
+  }
+  package "Domain Layer" {
+    class "Client" <<Entity>>
+    class "Panier" <<Entity>>
+    class "ProcessusCheckout" <<Entity>>
+    class "AdresseLivraison" <<ValueObject>>
+  }
+  package "Infrastructure Layer" {
+    class "DjangoClientRepository" <<Repository>>
+    class "DjangoPanierRepository" <<Repository>>
+    class "HttpCatalogueService" <<ExternalService>>
+  }
+}
+
+' === CONNEXIONS FRONTEND ===
+RapportConsolideView --> CommandesClient
+GestionStockView --> InventaireClient
+IndicateursView --> CommandesClient
+GestionProduitsView --> CatalogueClient
+WorkflowDemandesView --> SupplyChainClient
+
+' === CONNEXIONS HTTP VIA KONG ===
+CatalogueClient --> CatalogueUpstream : HTTP Kong
+InventaireClient --> InventaireRoute : HTTP Kong
+CommandesClient --> CommandesRoute : HTTP Kong
+SupplyChainClient --> SupplyChainRoute : HTTP Kong
+EcommerceClient --> EcommerceRoute : HTTP Kong
+
+' === CONNEXIONS KONG VERS SERVICES ===
+CatalogueUpstream --> DDDCatalogueAPI : Load Balanced
+InventaireRoute --> DDDInventaireAPI
+CommandesRoute --> DDDVenteViewSet
+SupplyChainRoute --> DDDDemandesEnAttenteAPI
+EcommerceRoute --> DDDClientAPI
+
+' === CONNEXIONS INTER-SERVICES HTTP ===
+HttpStockService --> DDDInventaireAPI : HTTP
+HttpInventaireService --> DDDInventaireAPI : HTTP
+HttpCatalogueService --> DDDCatalogueAPI : HTTP
+
+' === CONNEXIONS DDD INTERNES ===
+DDDCatalogueAPI --> RechercherProduitsUseCase
+RechercherProduitsUseCase --> Produit
+DDDInventaireAPI --> ConsulterStocksCentralUseCase
+ConsulterStocksCentralUseCase --> StockCentral
+DDDVenteViewSet --> EnregistrerVenteUseCase
+EnregistrerVenteUseCase --> Vente
+DDDValiderDemandeAPI --> ValiderDemandeUseCase
+ValiderDemandeUseCase --> WorkflowValidation
+DDDClientAPI --> CreerCompteClientUseCase
+CreerCompteClientUseCase --> Client
+
+@enduml

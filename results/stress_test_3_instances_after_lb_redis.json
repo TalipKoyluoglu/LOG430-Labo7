@@ -1,0 +1,16 @@
+{
+  "test_name": "Stress test après cache Redis (3 instances, load balancer)",
+  "duration": "15m",
+  "total_requests": 89932,
+  "average_rps": 99.9,
+  "max_rps_grafana": 1100,
+  "latency_avg_ms": 872,
+  "latency_p90_s": 3.39,
+  "latency_p95_s": 4.99,
+  "latency_max_s": 14.25,
+  "error_rate_percent": 10.95,
+  "success_rate_percent": 89.04,
+  "data_received_mb": 80,
+  "data_sent_mb": 12,
+  "notes": "Débit moyen calculé par k6, pic instantané observé dans Grafana. Latence et taux d'erreur nettement améliorés par rapport à avant le cache."
+} 

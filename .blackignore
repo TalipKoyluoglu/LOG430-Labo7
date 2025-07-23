@@ -1,0 +1,7 @@
+# Ignore tous les environnements virtuels
+.venv/
+venv/
+env/
+__pycache__/
+.pytest_cache/
+**/migrations/

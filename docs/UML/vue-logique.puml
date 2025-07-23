@@ -1,0 +1,454 @@
+@startuml vue-logique
+skinparam layoutEngine dot
+allowmixing
+title Vue Logique - Architecture Microservices DDD Complète
+
+' === BOUNDED CONTEXT: CATALOGUE MANAGEMENT ===
+package "Bounded Context: Catalogue Management" <<service-catalogue:8001>> {
+
+  package "Domain Layer" {
+    class "Produit" <<Entity>> {
+      +id: UUID
+      +nom: NomProduit
+      +prix: PrixMonetaire
+      +reference_sku: ReferenceSKU
+      +categorie: Categorie
+      +est_actif: bool
+      --
+      +archiver_produit()
+      +modifier_prix(nouveau_prix)
+      +valider_donnees()
+      +est_disponible_vente()
+    }
+
+    class "Categorie" <<Entity>> {
+      +id: UUID
+      +nom: str
+      +description: str
+      +parent_id: UUID
+      --
+      +ajouter_sous_categorie()
+      +valider_hierarchie()
+    }
+
+    class "NomProduit" <<ValueObject>> {
+      +valeur: str
+      --
+      +valider_longueur()
+      +normaliser()
+    }
+
+    class "PrixMonetaire" <<ValueObject>> {
+      +montant: Decimal
+      +devise: str
+      --
+      +valider_positif()
+      +formater_affichage()
+    }
+
+    class "ReferenceSKU" <<ValueObject>> {
+      +code: str
+      --
+      +valider_unicite()
+      +generer_code()
+    }
+  }
+
+  package "Application Layer" {
+    class "RechercherProduitsUseCase" <<UseCase>> {
+      +execute(criteres: CritereRecherche)
+      --
+      -appliquer_filtres()
+      -trier_par_pertinence()
+    }
+
+    class "AjouterProduitUseCase" <<UseCase>> {
+      +execute(donnees_produit: Dict)
+      --
+      -valider_donnees_metier()
+      -verifier_unicite_sku()
+    }
+
+    class "ModifierPrixUseCase" <<UseCase>> {
+      +execute(produit_id: UUID, nouveau_prix: Decimal)
+      --
+      -valider_autorisation()
+      -journaliser_changement()
+    }
+  }
+
+  package "Interface Layer" {
+    class "DDDCatalogueAPI" <<RestController>> {
+      +rechercher_produits(request)
+      +ajouter_produit(request)
+      +modifier_prix(request)
+    }
+  }
+}
+
+' === BOUNDED CONTEXT: INVENTORY MANAGEMENT ===
+package "Bounded Context: Inventory Management" <<service-inventaire:8002>> {
+
+  package "Domain Layer" {
+    class "StockCentral" <<Entity>> {
+      +produit_id: UUID
+      +quantite: Quantite
+      +seuil_alerte: int
+      --
+      +diminuer_stock(quantite)
+      +augmenter_stock(quantite)
+      +est_disponible(quantite)
+      +doit_reapprovisionner()
+    }
+
+    class "StockLocal" <<Entity>> {
+      +produit_id: UUID
+      +magasin_id: UUID
+      +quantite: Quantite
+      +derniere_maj: datetime
+      --
+      +transferer_vers_local(quantite)
+      +vendre_produit(quantite)
+      +calculer_rotation()
+    }
+
+    class "DemandeReapprovisionnement" <<Entity>> {
+      +id: UUID
+      +produit_id: UUID
+      +magasin_id: UUID
+      +quantite: Quantite
+      +statut: StatutDemande
+      +date_creation: datetime
+      --
+      +approuver()
+      +rejeter(motif)
+      +peut_etre_validee()
+    }
+
+    class "Quantite" <<ValueObject>> {
+      +valeur: int
+      --
+      +valider_positive()
+      +est_importante()
+    }
+  }
+
+  package "Application Layer" {
+    class "ConsulterStocksCentralUseCase" <<UseCase>> {
+      +execute()
+      --
+      -enrichir_infos_produits()
+      -calculer_alertes()
+    }
+
+    class "CreerDemandeReapproUseCase" <<UseCase>> {
+      +execute(produit_id, magasin_id, quantite)
+      --
+      -valider_donnees_metier()
+      -verifier_produit_existe()
+    }
+
+    class "TransfererStockUseCase" <<UseCase>> {
+      +execute(produit_id, quantite, magasin_dest)
+      --
+      -verifier_stock_disponible()
+      -effectuer_transfert_atomique()
+    }
+  }
+}
+
+' === BOUNDED CONTEXT: SALES MANAGEMENT ===
+package "Bounded Context: Sales Management" <<service-commandes:8003>> {
+
+  package "Domain Layer" {
+    class "Vente" <<Entity>> {
+      +id: UUID
+      +magasin_id: UUID
+      +client_id: UUID
+      +statut: StatutVente
+      +total: Decimal
+      +date_vente: datetime
+      --
+      +peut_etre_annulee()
+      +calculer_total()
+      +ajouter_ligne_vente()
+      +annuler_avec_motif()
+    }
+
+    class "Magasin" <<Entity>> {
+      +id: UUID
+      +nom: str
+      +adresse: AdresseMagasin
+      --
+      +peut_vendre(produit_id, quantite, stock)
+      +calculer_chiffre_affaires()
+      +obtenir_indicateurs()
+    }
+
+    class "CommandeVente" <<ValueObject>> {
+      +produit_id: UUID
+      +quantite: int
+      +prix_unitaire: Decimal
+      --
+      +valider_commande()
+      +calculer_sous_total()
+    }
+
+    class "StatutVente" <<ValueObject>> {
+      +valeur: str
+      --
+      +est_finale()
+      +peut_transitionner_vers()
+    }
+  }
+
+  package "Application Layer" {
+    class "EnregistrerVenteUseCase" <<UseCase>> {
+      +execute(donnees_vente)
+      --
+      -valider_stock_disponible()
+      -communiquer_avec_inventaire()
+      -creer_vente_complete()
+    }
+
+    class "GenererIndicateursUseCase" <<UseCase>> {
+      +execute()
+      --
+      -calculer_kpi_magasins()
+      -detecter_anomalies()
+    }
+
+    class "GenererRapportConsolideUseCase" <<UseCase>> {
+      +execute()
+      --
+      -consolider_donnees_ventes()
+      -enrichir_avec_stocks()
+    }
+  }
+
+  package "Infrastructure Layer" {
+    class "HttpStockService" <<ExternalService>> {
+      +reduire_stock(produit_id, quantite)
+      +verifier_disponibilite()
+    }
+  }
+}
+
+' === BOUNDED CONTEXT: SUPPLY CHAIN MANAGEMENT ===
+package "Bounded Context: Supply Chain Management" <<service-supply-chain:8004>> {
+
+  package "Domain Layer" {
+    class "WorkflowValidation" <<Entity>> {
+      +demande_id: UUID
+      +etapes_completees: List[str]
+      +statut_workflow: str
+      +rollback_effectue: bool
+      --
+      +executer_etape(nom_etape)
+      +rollback_si_echec()
+      +est_workflow_complet()
+    }
+
+    class "MotifRejet" <<ValueObject>> {
+      +texte: str
+      +categorie: str
+      --
+      +valider_longueur_minimale()
+      +nettoyer_contenu()
+    }
+  }
+
+  package "Application Layer" {
+    class "ListerDemandesUseCase" <<UseCase>> {
+      +execute()
+      --
+      -recuperer_via_inventaire_service()
+      -enrichir_donnees_metier()
+    }
+
+    class "ValiderDemandeUseCase" <<UseCase>> {
+      +execute(demande_id)
+      --
+      -workflow_3_etapes()
+      -rollback_automatique()
+      -journaliser_operations()
+    }
+
+    class "RejeterDemandeUseCase" <<UseCase>> {
+      +execute(demande_id, motif)
+      --
+      -valider_motif_rejet()
+      -notifier_rejection()
+    }
+  }
+
+  package "Infrastructure Layer" {
+    class "HttpInventaireService" <<ExternalService>> {
+      +lister_demandes_en_attente()
+      +transferer_stock_atomic()
+      +diminuer_stock_central()
+    }
+  }
+}
+
+' === BOUNDED CONTEXT: E-COMMERCE MANAGEMENT ===
+package "Bounded Context: E-commerce Management" <<service-ecommerce:8005>> {
+
+  package "Domain Layer" {
+    class "Client" <<Entity>> {
+      +id: UUID
+      +prenom: str
+      +nom: str
+      +email: EmailClient
+      +adresse: AdresseLivraison
+      --
+      +peut_commander()
+      +valider_donnees()
+      +creer_panier()
+    }
+
+    class "Panier" <<Entity>> {
+      +client_id: UUID
+      +produits: List[ProduitPanier]
+      +statut: StatutPanier
+      --
+      +ajouter_produit(produit_id, quantite)
+      +vider_panier()
+      +calculer_total()
+      +est_pret_checkout()
+    }
+
+    class "ProcessusCheckout" <<Entity>> {
+      +panier_id: UUID
+      +adresse_livraison: AdresseLivraison
+      +statut_checkout: StatutCheckout
+      --
+      +valider_prerequis()
+      +finaliser_commande()
+      +calculer_frais_livraison()
+    }
+
+    class "AdresseLivraison" <<ValueObject>> {
+      +rue: str
+      +ville: str
+      +code_postal: str
+      --
+      +valider_format()
+      +normaliser_adresse()
+    }
+  }
+
+  package "Application Layer" {
+    class "CreerCompteClientUseCase" <<UseCase>> {
+      +execute(donnees_client)
+    }
+
+    class "AjouterProduitPanierUseCase" <<UseCase>> {
+      +execute(client_id, produit_id, quantite)
+      --
+      -verifier_produit_existe()
+      -valider_stock_disponible()
+    }
+
+    class "CheckoutEcommerceUseCase" <<UseCase>> {
+      +execute(client_id, adresse)
+      --
+      -valider_panier_non_vide()
+      -creer_commande_via_service()
+      -vider_panier_apres_succes()
+    }
+  }
+
+  package "Infrastructure Layer" {
+    class "HttpCatalogueService" <<ExternalService>> {
+      +valider_produit_existe()
+      +obtenir_prix_produit()
+    }
+  }
+}
+
+' === FRONTEND ORCHESTRATEUR ===
+package "Frontend Orchestrateur (Django)" <<infrastructure>> {
+  class "RapportConsolideView" <<Controller>> {
+    +rapport_ventes(request)
+    +enregistrer_vente(request)
+  }
+
+  class "GestionStockView" <<Controller>> {
+    +uc2_stock(request)
+    +uc2_reapprovisionner(request)
+  }
+
+  class "WorkflowDemandesView" <<Controller>> {
+    +uc6_demandes(request)
+    +uc6_valider(request)
+    +uc6_rejeter(request)
+  }
+
+  package "Clients HTTP" {
+    class "CommandesClient" <<HTTPClient>> {
+      +enregistrer_vente()
+      +generer_rapport_consolide()
+    }
+
+    class "InventaireClient" <<HTTPClient>> {
+      +lister_stocks_centraux()
+      +creer_demande_reapprovisionnement()
+    }
+
+    class "SupplyChainClient" <<HTTPClient>> {
+      +lister_demandes_en_attente()
+      +valider_demande()
+    }
+  }
+}
+
+' === KONG API GATEWAY ===
+package "Kong API Gateway" <<infrastructure>> {
+  class "CatalogueUpstream" <<LoadBalancer>> {
+    +algorithm: round-robin
+    +targets: 3 instances
+  }
+
+  class "RoutingConfiguration" <<Configuration>> {
+    +/api/catalogue/* → catalogue-upstream
+    +/api/inventaire/* → inventaire-service
+    +/api/commandes/* → commandes-service
+    +/api/supply-chain/* → supply-chain-service
+    +/api/ecommerce/* → ecommerce-service
+  }
+}
+
+' === BASES DE DONNÉES À L'EXTÉRIEUR DES CONTEXTES ===
+database "produits_db" as CatalogueDB
+database "inventaire_db" as InventaireDB
+database "commandes_db" as CommandesDB
+database "supply_chain_db" as SupplyChainDB
+database "ecommerce_db" as EcommerceDB
+
+' === RELATIONS ENTITÉS PRINCIPALES ===
+Produit ||--o{ StockCentral : "gestion stock"
+Produit ||--o{ StockLocal : "stock magasin"
+Magasin ||--o{ StockLocal : "stocks locaux"
+Magasin ||--o{ Vente : "ventes magasin"
+Client ||--|| Panier : "panier actif"
+
+' === COMMUNICATION INTER-SERVICES ===
+EnregistrerVenteUseCase ..> HttpStockService : "HTTP: réduire stock"
+ValiderDemandeUseCase ..> HttpInventaireService : "HTTP: transférer stock"
+CheckoutEcommerceUseCase ..> HttpCatalogueService : "HTTP: valider produits"
+ListerDemandesUseCase ..> HttpInventaireService : "HTTP: récupérer demandes"
+
+' === CONNEXIONS FRONTEND ===
+RapportConsolideView --> CommandesClient
+GestionStockView --> InventaireClient
+WorkflowDemandesView --> SupplyChainClient
+
+' === CONNEXIONS BASES DE DONNÉES ===
+Produit --> CatalogueDB
+StockCentral --> InventaireDB
+Vente --> CommandesDB
+WorkflowValidation --> SupplyChainDB
+Client --> EcommerceDB
+
+@enduml

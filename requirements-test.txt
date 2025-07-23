@@ -1,0 +1,21 @@
+# Dépendances pour les tests d'intégration LOG430-Labo5
+# Installation: pip install -r requirements-test.txt
+
+# Core testing framework
+pytest>=8.0.0
+pytest-django>=4.5.0
+pytest-cov>=4.0.0
+
+# Test utilities and mocking
+pytest-mock>=3.10.0
+pytest-xdist>=3.0.0
+pytest-env>=1.1.0
+responses>=0.23.0
+factory-boy>=3.3.0
+freezegun>=1.2.0
+
+# Django-specific testing
+django-extensions>=3.2.0
+
+# Optional: performance testing
+pytest-benchmark>=4.0.0 

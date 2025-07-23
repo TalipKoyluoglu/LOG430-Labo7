@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Valider les demandes de réapprovisionnement</h1>
+
+{% if messages %}
+  <div>
+    {% for message in messages %}
+      {% if message.tags == 'error' %}
+        <p style="color: red; font-weight: bold;">{{ message }}</p>
+      {% else %}
+        <p style="color: green; font-weight: bold;">{{ message }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% if demandes %}
+<table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+  <thead>
+    <tr style="background-color: #f8f9fa;">
+      <th style="border: 1px solid #ccc; padding: 10px;">Produit</th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Magasin</th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Quantité demandée</th>
+      <th style="border: 1px solid #ccc; padding: 10px;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for demande in demandes %}
+    <tr>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ demande.nom_produit }}</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ demande.nom_magasin }}</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">{{ demande.quantite }}</td>
+      <td style="border: 1px solid #ccc; padding: 10px;">
+        <div style="display: flex; gap: 10px;">
+          <form method="post" action="{% url 'valider_demande' demande.id %}">
+            {% csrf_token %}
+            <button type="submit" style="background-color: green; color: white; padding: 5px 10px; border: none; border-radius: 4px;">✅ Valider</button>
+          </form>
+          <form method="post" action="{% url 'rejeter_demande' demande.id %}">
+            {% csrf_token %}
+            <button type="submit" style="background-color: red; color: white; padding: 5px 10px; border: none; border-radius: 4px;">❌ Rejeter</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p>Aucune demande en attente.</p>
+{% endif %}
+{% endblock %}

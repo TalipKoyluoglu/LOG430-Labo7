@@ -1,0 +1,56 @@
+[
+  {
+    "model": "clients.clientmodel",
+    "pk": "11111111-1111-1111-1111-111111111111",
+    "fields": {
+      "prenom": "Jean",
+      "nom": "Tremblay",
+      "email": "jean.tremblay@example.com",
+      "telephone": "514-555-0101",
+      "adresse_rue": "123 Rue de la Paix",
+      "adresse_ville": "Montréal",
+      "adresse_code_postal": "H1A 1A1",
+      "adresse_province": "Québec",
+      "adresse_pays": "Canada",
+      "date_creation": "2024-01-01T00:00:00Z",
+      "date_modification": "2024-01-01T00:00:00Z",
+      "actif": true
+    }
+  },
+  {
+    "model": "clients.clientmodel",
+    "pk": "22222222-2222-2222-2222-222222222222",
+    "fields": {
+      "prenom": "Marie",
+      "nom": "Dubois",
+      "email": "marie.dubois@example.com",
+      "telephone": "450-555-0202",
+      "adresse_rue": "456 Avenue des Érables",
+      "adresse_ville": "Laval",
+      "adresse_code_postal": "H7X 2Y3",
+      "adresse_province": "Québec",
+      "adresse_pays": "Canada",
+      "date_creation": "2024-01-01T00:00:00Z",
+      "date_modification": "2024-01-01T00:00:00Z",
+      "actif": true
+    }
+  },
+  {
+    "model": "clients.clientmodel",
+    "pk": "33333333-3333-3333-3333-333333333333",
+    "fields": {
+      "prenom": "Pierre",
+      "nom": "Martin",
+      "email": "pierre.martin@example.com",
+      "telephone": "418-555-0303",
+      "adresse_rue": "789 Boulevard Saint-Laurent",
+      "adresse_ville": "Québec",
+      "adresse_code_postal": "G1K 4L5",
+      "adresse_province": "Québec",
+      "adresse_pays": "Canada",
+      "date_creation": "2024-01-01T00:00:00Z",
+      "date_modification": "2024-01-01T00:00:00Z",
+      "actif": true
+    }
+  }
+] 

@@ -1,0 +1,57 @@
+[
+  {
+    "model": "produits.produit",
+    "pk": "550e8400-e29b-41d4-a716-446655440001",
+    "fields": {
+      "nom": "Clavier mécanique",
+      "categorie": "Informatique",
+      "prix": "89.99",
+      "quantite_stock": 50,
+      "description": "Clavier rétroéclairé RGB"
+    }
+  },
+  {
+    "model": "produits.produit",
+    "pk": "550e8400-e29b-41d4-a716-446655440002",
+    "fields": {
+      "nom": "Souris optique",
+      "categorie": "Informatique",
+      "prix": "25.50",
+      "quantite_stock": 80,
+      "description": "Souris ergonomique sans fil"
+    }
+  },
+  {
+    "model": "produits.produit",
+    "pk": "550e8400-e29b-41d4-a716-446655440003",
+    "fields": {
+      "nom": "Café Premium Bio",
+      "categorie": "Boissons",
+      "prix": "15.99",
+      "quantite_stock": 100,
+      "description": "Café arabica de qualité supérieure"
+    }
+  },
+  {
+    "model": "produits.produit",
+    "pk": "550e8400-e29b-41d4-a716-446655440004",
+    "fields": {
+      "nom": "Écouteurs Bluetooth",
+      "categorie": "Informatique",
+      "prix": "45.99",
+      "quantite_stock": 35,
+      "description": "Écouteurs sans fil haute qualité"
+    }
+  },
+  {
+    "model": "produits.produit",
+    "pk": "550e8400-e29b-41d4-a716-446655440005",
+    "fields": {
+      "nom": "Chocolat Noir 70%",
+      "categorie": "Confiserie",
+      "prix": "8.99",
+      "quantite_stock": 90,
+      "description": "Chocolat noir intense et raffiné"
+    }
+  }
+] 

@@ -1,0 +1,95 @@
+@startuml scenarios
+
+title Vue Cas d'Utilisation - Architecture Microservices DDD
+
+left to right direction
+
+' Acteurs principaux
+actor "Client Web" as WebClient
+actor "Employe Magasin" as StoreEmployee
+actor "Gestionnaire" as Admin
+
+' Héritage des rôles
+Admin --|> StoreEmployee : extends
+
+' Domaine Catalogue (service-catalogue)
+package "Domaine Catalogue" {
+    usecase "Rechercher produits" as UC01
+    usecase "Consulter details produit" as UC02
+    usecase "Gerer catalogue" as UC03
+    
+    UC01 ..> UC02 : includes
+    UC03 ..> UC01 : includes
+}
+
+' Domaine Inventaire (service-inventaire)
+package "Domaine Inventaire" {
+    usecase "Consulter stocks" as UC04
+    usecase "Creer demande reappro" as UC05
+    usecase "Transferer stock" as UC06
+    usecase "Gerer alertes stock" as UC07
+    
+    UC04 ..> UC07 : includes
+    UC05 ..> UC06 : includes
+}
+
+' Domaine Commandes (service-commandes)
+package "Domaine Commandes" {
+    usecase "Enregistrer vente" as UC08
+    usecase "Traiter paiement" as UC09
+    usecase "Generer rapports" as UC10
+    usecase "Analyser performances" as UC11
+    usecase "Annuler commande" as UC20
+    UC08 ..> UC09 : includes
+    UC10 ..> UC11 : includes
+}
+
+' Domaine Supply Chain (service-supply-chain)
+package "Domaine Supply Chain" {
+    usecase "Valider demandes reappro" as UC12
+    usecase "Gerer workflow validation" as UC14
+    usecase "Rejeter demandes reappro" as UC19
+    UC14 ..> UC19 : includes
+    UC14 ..> UC12 : includes
+}
+
+' Domaine E-commerce (service-ecommerce)
+package "Domaine E-commerce" {
+    usecase "Creer compte client" as UC15
+    usecase "Ajouter au panier" as UC16
+    usecase "Finaliser commande" as UC17
+    usecase "Gerer profil client" as UC18
+    
+    UC15 ..> UC18 : includes
+    UC16 ..> UC17 : includes
+    UC18 ..> UC15 : includes
+}
+
+' Relations acteurs - cas d'utilisation
+
+' Client Web (E-commerce)
+WebClient --> UC15
+WebClient --> UC16
+WebClient --> UC17
+
+' Employe Magasin (droits de base)
+StoreEmployee --> UC04
+StoreEmployee --> UC05
+StoreEmployee --> UC08
+StoreEmployee --> UC20
+
+' Gestionnaire/Admin (hérite des droits employé + droits supplémentaires)
+Admin --> UC03
+Admin --> UC10
+Admin --> UC11
+Admin --> UC14
+
+' Relations inter-domaines critiques (communication HTTP)
+UC08 ..> UC04 : Reduction stock
+UC17 ..> UC04 : Verification stock
+UC17 ..> UC08 : Creation commande
+UC12 ..> UC06 : Execution transfert
+UC10 ..> UC08 : Donnees ventes
+UC11 ..> UC01 : Donnees produits
+UC20 ..> UC06 : Remet le stock 
+@enduml

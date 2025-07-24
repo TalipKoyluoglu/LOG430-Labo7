@@ -101,6 +101,9 @@ class DDDVenteViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=["post"])
     def enregistrer(self, request):
         """Use Case: Enregistrer une vente"""
+        
+        import logging
+        logger = logging.getLogger(__name__)
 
         # 1. Validation des données d'entrée
         try:
@@ -154,30 +157,77 @@ class DDDVenteViewSet(viewsets.GenericViewSet):
             resultat = use_case.execute(commande)
             print(f"DEBUG: Résultat: {resultat}")
 
+            # 📢 EVENT: Publication d'événement de succès
+            logger.info("📢 EVENT: orders.command.creation.success", extra={
+                "event_type": "orders.command.creation.success",
+                "vente_id": resultat["vente"]["id"],
+                "magasin_id": data["magasin_id"],
+                "produit_id": data["produit_id"],
+                "client_id": data["client_id"],
+                "quantite": quantite,
+                "total": resultat["vente"]["total"],
+                "timestamp": "NOW"
+            })
+
             return Response(resultat, status=status.HTTP_201_CREATED)
 
         except (ValueError, TypeError) as e:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: orders.command.creation.failed", extra={
+                "event_type": "orders.command.creation.failed",
+                "error": f"Format de données invalide: {str(e)}",
+                "request_data": str(request.data),
+                "timestamp": "NOW"
+            })
             print(f"DEBUG: Erreur ValueError/TypeError: {e}")
             return Response(
                 {"error": "Format de données invalide"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except MagasinInexistantError as e:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: orders.command.creation.failed", extra={
+                "event_type": "orders.command.creation.failed",
+                "error": f"Magasin invalide: {str(e)}",
+                "reason": "magasin_inexistant",
+                "timestamp": "NOW"
+            })
             print(f"DEBUG: Erreur MagasinInexistantError: {e}")
             return Response(
                 {"error": f"Magasin invalide: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except ProduitInexistantError as e:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: orders.command.creation.failed", extra={
+                "event_type": "orders.command.creation.failed",
+                "error": f"Produit invalide: {str(e)}",
+                "reason": "produit_inexistant",
+                "timestamp": "NOW"
+            })
             print(f"DEBUG: Erreur ProduitInexistantError: {e}")
             return Response(
                 {"error": f"Produit invalide: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except StockInsuffisantError as e:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: orders.command.creation.failed", extra={
+                "event_type": "orders.command.creation.failed",
+                "error": str(e),
+                "reason": "stock_insuffisant",
+                "timestamp": "NOW"
+            })
             print(f"DEBUG: Erreur StockInsuffisantError: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: orders.command.creation.failed", extra={
+                "event_type": "orders.command.creation.failed",
+                "error": f"Erreur interne: {str(e)}",
+                "reason": "internal_error",
+                "timestamp": "NOW"
+            })
             print(f"DEBUG: Erreur générale: {e}")
             import traceback
 

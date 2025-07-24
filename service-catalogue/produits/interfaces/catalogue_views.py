@@ -370,6 +370,9 @@ def get_produit_by_id(request, produit_id):
     """
     GET /api/ddd/catalogue/produits/{id}/ - Récupération d'un produit
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         # Injection de dépendances (pattern DDD)
         produit_repo = DjangoProduitRepository()
@@ -378,10 +381,27 @@ def get_produit_by_id(request, produit_id):
         produit = produit_repo.get_by_id(produit_id)
 
         if produit is None:
+            # 📢 EVENT: Publication d'événement d'échec
+            logger.error("📢 EVENT: catalog.product.retrieval.failed", extra={
+                "event_type": "catalog.product.retrieval.failed",
+                "produit_id": str(produit_id),
+                "error": "Produit non trouvé",
+                "timestamp": "NOW"
+            })
+            
             return Response(
                 {"success": False, "error": f"Produit {produit_id} non trouvé"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # 📢 EVENT: Publication d'événement de succès
+        logger.info("📢 EVENT: catalog.product.retrieval.success", extra={
+            "event_type": "catalog.product.retrieval.success",
+            "produit_id": str(produit_id),
+            "produit_nom": produit.nom.valeur,
+            "prix": float(produit.prix.montant),
+            "timestamp": "NOW"
+        })
 
         # Retour des données du produit
         return Response(
@@ -400,6 +420,14 @@ def get_produit_by_id(request, produit_id):
         )
 
     except Exception as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: catalog.product.retrieval.failed", extra={
+            "event_type": "catalog.product.retrieval.failed",
+            "produit_id": str(produit_id),
+            "error": f"Erreur interne: {str(e)}",
+            "timestamp": "NOW"
+        })
+        
         return Response(
             {"success": False, "error": "Erreur interne du serveur", "details": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -149,6 +149,9 @@ def diminuer_stock(request):
     API DDD : Diminue le stock d'un produit (central ou local)
     Équivalent à l'ancienne API /decrease_stock/
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         data = json.loads(request.body)
         request_dto = DiminuerStockRequest(
@@ -160,15 +163,53 @@ def diminuer_stock(request):
         use_case = _get_gerer_stock_use_case()
         result = use_case.diminuer_stock(request_dto)
 
+        # 📢 EVENT: Publication d'événement de succès de réservation
+        logger.info("📢 EVENT: inventory.stock.reservation.success", extra={
+            "event_type": "inventory.stock.reservation.success",
+            "produit_id": data["produit_id"],
+            "quantite": data["quantite"],
+            "magasin_id": data.get("magasin_id"),
+            "nouvelle_quantite": result.get("nouvelle_quantite"),
+            "timestamp": "NOW"
+        })
+
         return JsonResponse(result, status=200)
 
     except (KeyError, ValueError, json.JSONDecodeError) as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: inventory.stock.reservation.failed", extra={
+            "event_type": "inventory.stock.reservation.failed",
+            "error": f"Données invalides: {str(e)}",
+            "request_data": str(request.body),
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": f"Données invalides: {str(e)}"}, status=400)
     except StockInsuffisantError as e:
+        # 📢 EVENT: Publication d'événement d'échec spécifique
+        logger.error("📢 EVENT: inventory.stock.reservation.failed", extra={
+            "event_type": "inventory.stock.reservation.failed",
+            "error": str(e),
+            "reason": "stock_insuffisant",
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": str(e)}, status=400)
     except InventaireDomainError as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: inventory.stock.reservation.failed", extra={
+            "event_type": "inventory.stock.reservation.failed",
+            "error": str(e),
+            "reason": "domain_error",
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": str(e)}, status=400)
     except Exception as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: inventory.stock.reservation.failed", extra={
+            "event_type": "inventory.stock.reservation.failed",
+            "error": f"Erreur interne: {str(e)}",
+            "reason": "internal_error",
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": f"Erreur interne: {str(e)}"}, status=500)
 
 
@@ -287,9 +328,20 @@ def lister_stocks_locaux_magasin(request, magasin_id):
     API DDD : Liste tous les stocks locaux d'un magasin
     Équivalent à l'ancienne API /stocks_locaux/{magasin_id}/
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         use_case = _get_gerer_stock_use_case()
         results = use_case.lister_stocks_locaux_magasin(magasin_id=str(magasin_id))
+
+        # 📢 EVENT: Publication d'événement de succès
+        logger.info("📢 EVENT: inventory.stock.verification.success", extra={
+            "event_type": "inventory.stock.verification.success",
+            "magasin_id": str(magasin_id),
+            "produits_count": len(results),
+            "timestamp": "NOW"
+        })
 
         return JsonResponse(
             {
@@ -306,9 +358,23 @@ def lister_stocks_locaux_magasin(request, magasin_id):
             }
         )
 
-    except ValueError:
+    except ValueError as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: inventory.stock.verification.failed", extra={
+            "event_type": "inventory.stock.verification.failed",
+            "magasin_id": str(magasin_id),
+            "error": "ID magasin invalide",
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": "ID magasin invalide"}, status=400)
     except Exception as e:
+        # 📢 EVENT: Publication d'événement d'échec
+        logger.error("📢 EVENT: inventory.stock.verification.failed", extra={
+            "event_type": "inventory.stock.verification.failed",
+            "magasin_id": str(magasin_id),
+            "error": str(e),
+            "timestamp": "NOW"
+        })
         return JsonResponse({"error": f"Erreur interne: {str(e)}"}, status=500)
 
 

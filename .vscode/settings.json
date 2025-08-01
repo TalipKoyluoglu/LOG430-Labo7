@@ -14,5 +14,93 @@
     "cursorpyright.analysis.autoImportCompletions": true,
     "cursorpyright.analysis.extraPaths": [
         "."
-    ]
+    ],
+    "remote.portsAttributes": {
+        "8001": {
+            "label": "Catalogue Service 1",
+            "onAutoForward": "notify"
+        },
+        "8002": {
+            "label": "Inventaire Service",
+            "onAutoForward": "notify"
+        },
+        "8003": {
+            "label": "Commandes Service",
+            "onAutoForward": "notify"
+        },
+        "8004": {
+            "label": "Supply Chain Service",
+            "onAutoForward": "notify"
+        },
+        "8005": {
+            "label": "Ecommerce Service",
+            "onAutoForward": "notify"
+        },
+        "8006": {
+            "label": "Catalogue Service 2",
+            "onAutoForward": "notify"
+        },
+        "8007": {
+            "label": "Catalogue Service 3",
+            "onAutoForward": "notify"
+        },
+        "8009": {
+            "label": "Saga Orchestrator",
+            "onAutoForward": "notify"
+        },
+        "80": {
+            "label": "Nginx",
+            "onAutoForward": "notify"
+        },
+        "8080": {
+            "label": "Kong Admin",
+            "onAutoForward": "notify"
+        },
+        "8081": {
+            "label": "Kong Proxy",
+            "onAutoForward": "notify"
+        },
+        "3000": {
+            "label": "Grafana",
+            "onAutoForward": "notify"
+        },
+        "9090": {
+            "label": "Prometheus",
+            "onAutoForward": "notify"
+        },
+        "6379": {
+            "label": "Redis",
+            "onAutoForward": "notify"
+        },
+        "5433": {
+            "label": "Kong Database",
+            "onAutoForward": "notify"
+        },
+        "5434": {
+            "label": "Produits Database",
+            "onAutoForward": "notify"
+        },
+        "5435": {
+            "label": "Inventaire Database",
+            "onAutoForward": "notify"
+        },
+        "5436": {
+            "label": "Commandes Database",
+            "onAutoForward": "notify"
+        },
+        "5437": {
+            "label": "Supply Chain Database",
+            "onAutoForward": "notify"
+        },
+        "5438": {
+            "label": "Ecommerce Database",
+            "onAutoForward": "notify"
+        },
+        "5439": {
+            "label": "Saga Database",
+            "onAutoForward": "notify"
+        }
+    },
+    "remote.autoForwardPorts": true,
+    "remote.autoForwardPortsSource": "output"
 } 

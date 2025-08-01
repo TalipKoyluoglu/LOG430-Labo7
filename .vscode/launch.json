@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Auto Forward Docker Ports",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/auto-forward-ports.sh",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        }
+    ]
+} 

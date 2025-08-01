@@ -1,0 +1,115 @@
+@startuml
+title Saga Orchestree Synchrone - Machine d'Etat\nService Saga Orchestrator
+
+[*] --> EN_ATTENTE
+
+state EN_ATTENTE {
+  EN_ATTENTE : Etat initial
+  EN_ATTENTE : Saga creee avec donnees client
+  EN_ATTENTE : Validation des lignes de commande
+}
+
+state VERIFICATION_STOCK {
+  VERIFICATION_STOCK : Etape 1 - Verification stock
+  VERIFICATION_STOCK : GET /api/inventaire/stocks-locaux/{magasin_id}
+  VERIFICATION_STOCK : Verification disponibilite pour chaque produit
+}
+
+state STOCK_VERIFIE {
+  STOCK_VERIFIE : Etape 1 - Succes
+  STOCK_VERIFIE : Stock disponible confirme
+  STOCK_VERIFIE : Etape 2 integree - Recuperation infos produits
+}
+
+state RESERVATION_STOCK {
+  RESERVATION_STOCK : Etape 3 - Reservation stock
+  RESERVATION_STOCK : POST /api/inventaire/diminuer-stock/
+  RESERVATION_STOCK : Reservation atomique du stock
+}
+
+state STOCK_RESERVE {
+  STOCK_RESERVE : Etape 3 - Succes
+  STOCK_RESERVE : Stock reserve avec succes
+  STOCK_RESERVE : IDs de reservation stockes
+}
+
+state CREATION_COMMANDE {
+  CREATION_COMMANDE : Etape 4 - Creation commande finale
+  CREATION_COMMANDE : POST /api/commandes/enregistrer/
+  CREATION_COMMANDE : Creation de la vente finale
+}
+
+state COMMANDE_CREEE {
+  COMMANDE_CREEE : Etape 4 - Succes
+  COMMANDE_CREEE : Commande creee avec ID
+  COMMANDE_CREEE : Transaction distribuee reussie
+}
+
+state SAGA_TERMINEE {
+  SAGA_TERMINEE : Etat final - Succes
+  SAGA_TERMINEE : Toutes les etapes terminees
+  SAGA_TERMINEE : Metriques enregistrees
+}
+
+state ECHEC_STOCK_INSUFFISANT {
+  ECHEC_STOCK_INSUFFISANT : Echec Etape 1
+  ECHEC_STOCK_INSUFFISANT : Stock insuffisant detecte
+  ECHEC_STOCK_INSUFFISANT : Aucune compensation necessaire
+}
+
+state ECHEC_RESERVATION_STOCK {
+  ECHEC_RESERVATION_STOCK : Echec Etape 3
+  ECHEC_RESERVATION_STOCK : Impossible de reserver stock
+  ECHEC_RESERVATION_STOCK : Pas de compensation (pas encore reserve)
+}
+
+state ECHEC_CREATION_COMMANDE {
+  ECHEC_CREATION_COMMANDE : Echec Etape 4
+  ECHEC_CREATION_COMMANDE : Creation commande echouee
+  ECHEC_CREATION_COMMANDE : Stock deja reserve → Compensation requise
+}
+
+state COMPENSATION_EN_COURS {
+  COMPENSATION_EN_COURS : Compensation Active
+  COMPENSATION_EN_COURS : POST /api/inventaire/augmenter-stock/
+  COMPENSATION_EN_COURS : Liberation stock reserve
+}
+
+state SAGA_ANNULEE {
+  SAGA_ANNULEE : Etat final - Echec
+  SAGA_ANNULEE : Transaction annulee
+  SAGA_ANNULEE : Compensation terminee si necessaire
+}
+
+EN_ATTENTE --> VERIFICATION_STOCK : SAGA_DEMARRE\nDemarrage verification
+
+VERIFICATION_STOCK --> STOCK_VERIFIE : STOCK_VERIFIE_SUCCES\nStock disponible confirme
+
+STOCK_VERIFIE --> RESERVATION_STOCK : Recuperation infos produit\npuis reservation stock
+
+RESERVATION_STOCK --> STOCK_RESERVE : STOCK_RESERVE_SUCCES\nStock reserve avec succes
+
+STOCK_RESERVE --> CREATION_COMMANDE : Creation commande finale
+
+CREATION_COMMANDE --> COMMANDE_CREEE : COMMANDE_CREEE_SUCCES\nCommande creee
+
+COMMANDE_CREEE --> SAGA_TERMINEE : SAGA_TERMINEE_SUCCES\nFinalisation saga
+
+VERIFICATION_STOCK --> ECHEC_STOCK_INSUFFISANT : STOCK_VERIFIE_ECHEC\nStock insuffisant
+
+RESERVATION_STOCK --> ECHEC_RESERVATION_STOCK : STOCK_RESERVE_ECHEC\nEchec reservation
+
+CREATION_COMMANDE --> ECHEC_CREATION_COMMANDE : COMMANDE_CREEE_ECHEC\nEchec creation commande
+
+ECHEC_STOCK_INSUFFISANT --> SAGA_ANNULEE : Aucune compensation\n(rien a liberer)
+
+ECHEC_RESERVATION_STOCK --> SAGA_ANNULEE : Aucune compensation\n(stock pas encore reserve)
+
+ECHEC_CREATION_COMMANDE --> COMPENSATION_EN_COURS : COMPENSATION_DEMANDEE\nStock a liberer
+
+COMPENSATION_EN_COURS --> SAGA_ANNULEE : COMPENSATION_TERMINEE\nStock libere
+
+SAGA_TERMINEE --> [*]
+SAGA_ANNULEE --> [*]
+
+@enduml

@@ -1,6 +1,6 @@
 @startuml scenarios
 
-title Vue Cas d'Utilisation - Architecture Microservices DDD
+title Vue Cas d'Utilisation - Lab6 Orchestrée + Lab7 Chorégraphiée
 
 left to right direction
 
@@ -57,11 +57,13 @@ package "Domaine Supply Chain" {
 package "Domaine E-commerce" {
     usecase "Creer compte client" as UC15
     usecase "Ajouter au panier" as UC16
-    usecase "Finaliser commande" as UC17
+    usecase "Finaliser commande (orchestrée)" as UC17
+    usecase "Checkout chorégraphié (Pub/Sub)" as UC21
     usecase "Gerer profil client" as UC18
     
     UC15 ..> UC18 : includes
     UC16 ..> UC17 : includes
+    UC16 ..> UC21 : includes
     UC18 ..> UC15 : includes
 }
 
@@ -71,6 +73,7 @@ package "Domaine E-commerce" {
 WebClient --> UC15
 WebClient --> UC16
 WebClient --> UC17
+WebClient --> UC21
 
 ' Employe Magasin (droits de base)
 StoreEmployee --> UC04
@@ -84,10 +87,12 @@ Admin --> UC10
 Admin --> UC11
 Admin --> UC14
 
-' Relations inter-domaines critiques (communication HTTP)
+' Relations inter-domaines critiques (HTTP & Events)
 UC08 ..> UC04 : Reduction stock
 UC17 ..> UC04 : Verification stock
 UC17 ..> UC08 : Creation commande
+UC21 ..> UC04 : Reserve/Release stock (events)
+UC21 ..> UC08 : Creer commande (events)
 UC12 ..> UC06 : Execution transfert
 UC10 ..> UC08 : Donnees ventes
 UC11 ..> UC01 : Donnees produits

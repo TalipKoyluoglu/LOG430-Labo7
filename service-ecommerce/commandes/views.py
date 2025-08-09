@@ -146,8 +146,30 @@ def checkout_ecommerce(request, client_id):
             use_case = CheckoutEcommerceUseCase()
             resultat_checkout = use_case.execute(demande_checkout)
 
+            # Publier l'événement de succès
+            from .application.services.event_publisher import EcommerceEventPublisher
+            publisher = EcommerceEventPublisher()
+            # Publier d'abord l'initiation avec le checkout_id réel renvoyé
+            publisher.publish_checkout_initiated(
+                checkout_id=resultat_checkout["checkout_id"],
+                client_id=str(client_uuid),
+                panier_resume={"client_id": str(client_uuid)},
+            )
+            publisher.publish_checkout_succeeded(
+                checkout_id=resultat_checkout["checkout_id"],
+                commande_id=resultat_checkout["commande_id"],
+            )
+
         except Exception as use_case_error:
             logger.error(f"Erreur Use Case checkout: {str(use_case_error)}")
+            try:
+                from .application.services.event_publisher import EcommerceEventPublisher
+                EcommerceEventPublisher().publish_checkout_failed(
+                    checkout_id=str(uuid.uuid4()),
+                    reason=str(use_case_error),
+                )
+            except Exception:
+                pass
             # Fallback en cas d'erreur du use case
             return Response(
                 {
@@ -345,7 +367,47 @@ def historique_commandes_client(request, client_id):
         logger.error(
             f"Erreur lors de la récupération de l'historique pour client {client_id}: {str(e)}"
         )
-        return Response(
-            {"error": "Erreur interne du serveur", "details": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def checkout_ecommerce_choreo(request, client_id):
+    """
+    Variante chorégraphiée: publie uniquement l'événement d'initiation
+    et retourne un 202 Accepted avec un checkout_id pour suivi via Event Store.
+    """
+    try:
+        client_uuid = str(uuid.UUID(str(client_id)))
+    except ValueError:
+        return Response({"error": "UUID client invalide"}, status=status.HTTP_400_BAD_REQUEST)
+
+    from .application.services.event_publisher import EcommerceEventPublisher
+    from .application.services.panier_service import PanierService
+    import uuid as _uuid
+
+    checkout_id = str(_uuid.uuid4())
+    publisher = EcommerceEventPublisher()
+    panier = PanierService().recuperer_panier_client(client_uuid)
+    # métriques saga chorégraphiée
+    try:
+        from lab7.common.metrics import saga_choreo_started_total
+        saga_choreo_started_total.labels(source="ecommerce").inc()
+    except Exception:
+        pass
+
+    publisher.publish_checkout_initiated(
+        checkout_id=checkout_id,
+        client_id=client_uuid,
+        panier_resume={
+            "client_id": client_uuid,
+            "nombre_articles": panier.get("nombre_articles", 0),
+            "total": panier.get("total", 0.0),
+            "produits": panier.get("produits", []),
+        },
+    )
+
+    return Response({
+        "accepted": True,
+        "checkout_id": checkout_id,
+        "follow": f"http://localhost:7010/api/event-store/replay/checkout/{checkout_id}"
+    }, status=status.HTTP_202_ACCEPTED)

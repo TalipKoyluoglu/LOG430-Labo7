@@ -1,136 +1,148 @@
 @startuml
-title Vue Physique - Architecture Évoluée
+title Vue Physique - Lab6 (Orchestrée) + Lab7 (Événementiel)
 skinparam componentStyle rectangle
 skinparam shadowing false
 skinparam linetype ortho
 left to right direction
 
-' === OBSERVABILITÉ (en haut) ===
+' === OBSERVABILITÉ ===
 node "Observabilité" {
   component "Grafana" as grafana
-  note right of grafana : port 3000
-  component "Prometheus" as prometheus  
-  note right of prometheus : port 9090
+  note right of grafana : 3000
+  component "Prometheus" as prometheus
+  note right of prometheus : 9090
 }
 
-' === CLIENT APP (à gauche) ===
+' === FRONTEND APPLI ===
 node "client-app" {
   component "NGINX" as nginx
-  note right of nginx : Port 80
+  note right of nginx : 80
   component "Django App" as djangoApp
-  note right of djangoApp : Port 8000 (interne)
+  note right of djangoApp : 8000 (interne)
 }
 
-' === CACHE REDIS ===
-node "cache-redis" {
-  component "Redis Cache" as redis
-  note right of redis : Port 6379
-}
-
-' === KONG API GATEWAY (centre) ===
+' === API GATEWAY ===
 node "Kong API Gateway" as kong
-note right of kong : Port 8080 (proxy)\nPort 8081 (admin)
+note right of kong : 8080 proxy / 8081 admin
 
-' === MICROSERVICES (droite) ===
-node "catalogue-service-1" {
-  component "Catalogue Service 1" as cat1
-  note right of cat1 : Port 8001
+' === BROKER & EVENT STORE (Lab7) ===
+node "Eventing" {
+  component "Redis Streams" as redis
+  note right of redis : 6379
+  component "Event Store (Flask)" as eventstore
+  note right of eventstore : 7010
 }
 
-node "catalogue-service-2" {
-  component "Catalogue Service 2" as cat2
-  note right of cat2 : Port 8006
-}
-
-node "catalogue-service-3" {
-  component "Catalogue Service 3" as cat3
-  note right of cat3 : Port 8007
+' === MICROSERVICES ===
+node "catalogue-service-*" {
+  component "Catalogue 1" as cat1
+  note right of cat1 : 8001
+  component "Catalogue 2" as cat2
+  note right of cat2 : 8006
+  component "Catalogue 3" as cat3
+  note right of cat3 : 8007
 }
 
 node "inventaire-service" {
-  component "Inventaire Service" as inv
-  note right of inv : Port 8002
+  component "Inventaire" as inv
+  note right of inv : 8002
 }
 
 node "commandes-service" {
-  component "Commandes Service" as cmd
-  note right of cmd : Port 8003
+  component "Commandes" as cmd
+  note right of cmd : 8003
 }
 
 node "supply-chain-service" {
-  component "Supply Chain Service" as sup
-  note right of sup : Port 8004
+  component "Supply Chain" as sup
+  note right of sup : 8004
 }
 
-rectangle "ecommerce-service" {
-  component "ECommerce Service" as eco
-  note right of eco : Port 8005
+node "ecommerce-service" {
+  component "E-commerce" as eco
+  note right of eco : 8005
 }
 
-' === BASES DE DONNÉES (extrême droite) ===
-node "Docker Container : postgresql" as catalogueDbContainer {
-  database "Catalogue DB" as catalogueDb
-  note right of catalogueDb : Port 5434
+' === WORKERS (Lab7 – Chorégraphie & CQRS) ===
+node "Workers" {
+  component "stock-reservation-worker" as w_res
+  note right of w_res : 9102
+  component "order-creation-worker" as w_ord
+  note right of w_ord : 9103
+  component "stock-compensation-worker" as w_comp
+  note right of w_comp : 9104
+  component "notification-worker" as w_notif
+  note right of w_notif : 9100
+  component "audit-worker" as w_audit
+  note right of w_audit : 9101
+  component "cqrs-projection-worker" as w_cqrs
+  note right of w_cqrs : 9105
 }
 
-node "Docker Container : postgresql" as inventaireDbContainer {
-  database "Inventaire DB" as inventaireDb
-  note right of inventaireDb : Port 5435
-}
+' === BASES DE DONNÉES ===
+database "Catalogue DB (5434)" as catalogueDb
+database "Inventaire DB (5435)" as inventaireDb
+database "Commandes DB (5436)" as commandesDb
+database "SupplyChain DB (5437)" as supplyChainDb
+database "Ecommerce DB (5438)" as ecommerceDb
+database "Kong DB (5433)" as kongDb
 
-node "Docker Container : postgresql" as commandesDbContainer {
-  database "Commandes DB" as commandesDb
-  note right of commandesDb : Port 5436
-}
-
-node "Docker Container : postgresql" as supplyChainDbContainer {
-  database "Supply Chain DB" as supplyChainDb
-  note right of supplyChainDb : Port 5437
-}
-
-node "Docker Container : postgresql" as ecommerceDbContainer {
-  database "ECommerce DB" as ecommerceDb
-  note right of ecommerceDb : Port 5438
-}
-
-node "Docker Container : postgresql" as kongDbContainer {
-  database "Kong DB" as kongDb
-  note right of kongDb : Port 5433
-}
-
-' === CONNEXIONS DE GAUCHE À DROITE ===
+' === TRAFIC UTILISATEUR ===
 nginx --> djangoApp : proxy_pass
-djangoApp --> redis : Cache Django
-djangoApp --> kong : HTTP Clients
+djangoApp --> kong : HTTP clients
 
-' === KONG ROUTING AVEC LOAD BALANCING ===
-kong --> cat1 : Route /api/catalogue\n(Round-robin)
-kong --> cat2 : Load balancing  
-kong --> cat3 : Load balancing
-kong --> inv : Route /api/inventaire
-kong --> cmd : Route /api/commandes
-kong --> sup : Route /api/supply-chain
-kong --> eco : Route /api/ecommerce
+' === KONG ROUTING ===
+kong --> cat1 : /api/catalogue (LB)
+kong --> cat2
+kong --> cat3
+kong --> inv : /api/inventaire
+kong --> cmd : /api/commandes
+kong --> sup : /api/supply-chain
+kong --> eco : /api/ecommerce
 
-' === MICROSERVICES VERS BASES ===
-cat1 --> catalogueDb : PostgreSQL ORM
-cat2 --> catalogueDb : PostgreSQL ORM
-cat3 --> catalogueDb : PostgreSQL ORM
-inv --> inventaireDb : PostgreSQL ORM
-cmd --> commandesDb : PostgreSQL ORM
-sup --> supplyChainDb : PostgreSQL ORM
-eco --> ecommerceDb : PostgreSQL ORM
-kong --> kongDb : PostgreSQL config
+' === PERSISTANCE ===
+cat1 --> catalogueDb
+cat2 --> catalogueDb
+cat3 --> catalogueDb
+inv --> inventaireDb
+cmd --> commandesDb
+sup --> supplyChainDb
+eco --> ecommerceDb
+kong --> kongDb
 
-' === COMMUNICATION INTER-SERVICES ===
-cmd ..> inv : HTTP (réduire stock)
-sup ..> inv : HTTP (transferts stock)
-eco ..> cat1 : HTTP (produits panier)
-eco ..> cmd : HTTP (créer commande)
+' === LAB6 ORCHESTRATION (rappel) ===
+component "service-saga-orchestrator" as orchestrator
+note right of orchestrator : 8009
+djangoApp ..> orchestrator : appels Saga (Lab6)
+orchestrator ..> inv : vérif/réservation stock
+orchestrator ..> cmd : créer commande
+
+' === LAB7 PUB/SUB ===
+eco --> redis : publish CheckoutInitiated
+w_res --> redis : subscribe (choreo-reservation)
+w_res ..> inv : diminuer-stock
+w_res --> redis : publish StockReserved | StockReservationFailed
+w_ord --> redis : subscribe (choreo-order)
+w_ord ..> cmd : enregistrer-vente
+w_ord --> redis : publish OrderCreated | CheckoutSucceeded | OrderCreationFailed
+w_comp --> redis : subscribe (choreo-compensation)
+w_comp ..> inv : augmenter-stock
+w_comp --> redis : publish StockReleased | CheckoutFailed
+w_notif --> redis : subscribe (notification)
+w_audit --> redis : subscribe (audit)
+w_cqrs --> redis : subscribe (cqrs)
+eventstore ..> redis : lecture streams + replay
 
 ' === MONITORING ===
-prometheus --> kong : scrape
-prometheus --> nginx : scrape
-grafana --> prometheus : Dashboard data
+prometheus --> nginx : scrape /metrics
+prometheus --> orchestrator : scrape /metrics
+prometheus --> eco : scrape /metrics
+prometheus --> w_res : scrape /metrics
+prometheus --> w_ord : scrape /metrics
+prometheus --> w_comp : scrape /metrics
+prometheus --> w_notif : scrape /metrics
+prometheus --> w_audit : scrape /metrics
+prometheus --> w_cqrs : scrape /metrics
+grafana --> prometheus : Dashboards
 
-@enduml 
+@enduml

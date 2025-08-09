@@ -1,7 +1,7 @@
 @startuml vue-logique
 skinparam layoutEngine dot
 allowmixing
-title Vue Logique - Architecture Microservices DDD Complète
+title Vue Logique - Lab6 Orchestrée + Lab7 Événementielle
 
 ' === BOUNDED CONTEXT: CATALOGUE MANAGEMENT ===
 package "Bounded Context: Catalogue Management" <<service-catalogue:8001>> {
@@ -438,6 +438,54 @@ EnregistrerVenteUseCase ..> HttpStockService : "HTTP: réduire stock"
 ValiderDemandeUseCase ..> HttpInventaireService : "HTTP: transférer stock"
 CheckoutEcommerceUseCase ..> HttpCatalogueService : "HTTP: valider produits"
 ListerDemandesUseCase ..> HttpInventaireService : "HTTP: récupérer demandes"
+
+' === LAB7 BUS D'ÉVÉNEMENTS (pub/sub) ===
+package "Event Bus: Redis Streams" <<infrastructure>> {
+  class "Topic ecommerce.checkout.events" <<Stream>>
+}
+
+class "CheckoutInitiated" <<Event>>
+class "StockReserved" <<Event>>
+class "OrderCreated" <<Event>>
+class "CheckoutSucceeded" <<Event>>
+class "StockReservationFailed" <<Event>>
+class "OrderCreationFailed" <<Event>>
+class "StockReleased" <<Event>>
+class "CheckoutFailed" <<Event>>
+
+CheckoutEcommerceUseCase ..> "CheckoutInitiated" : publish
+"CheckoutInitiated" ..> "Topic ecommerce.checkout.events"
+"StockReserved" ..> "Topic ecommerce.checkout.events"
+"OrderCreated" ..> "Topic ecommerce.checkout.events"
+"CheckoutSucceeded" ..> "Topic ecommerce.checkout.events"
+"StockReservationFailed" ..> "Topic ecommerce.checkout.events"
+"OrderCreationFailed" ..> "Topic ecommerce.checkout.events"
+"StockReleased" ..> "Topic ecommerce.checkout.events"
+"CheckoutFailed" ..> "Topic ecommerce.checkout.events"
+
+class "stock_reservation_worker" <<Consumer>>
+class "order_creation_worker" <<Consumer>>
+class "stock_compensation_worker" <<Consumer>>
+class "notification_worker" <<Consumer>>
+class "audit_worker" <<Consumer>>
+class "cqrs_projection_worker" <<Consumer>>
+
+"Topic ecommerce.checkout.events" ..> stock_reservation_worker : group=choreo-reservation
+"Topic ecommerce.checkout.events" ..> order_creation_worker : group=choreo-order
+"Topic ecommerce.checkout.events" ..> stock_compensation_worker : group=choreo-compensation
+"Topic ecommerce.checkout.events" ..> notification_worker : group=checkout-notification
+"Topic ecommerce.checkout.events" ..> audit_worker : group=checkout-audit
+"Topic ecommerce.checkout.events" ..> cqrs_projection_worker : group=checkout-cqrs
+
+stock_reservation_worker ..> DDDInventaireAPI : HTTP diminuer/augmenter stock
+order_creation_worker ..> DDDVenteViewSet : HTTP enregistrer-vente
+stock_compensation_worker ..> DDDInventaireAPI : HTTP compensation
+
+package "Event Store (Flask)" <<read-models>> {
+  class "/replay/checkout/<checkout_id>" <<Endpoint>>
+  class "/cqrs/orders-by-client/<client_id>" <<Endpoint>>
+}
+cqrs_projection_worker ..> "/cqrs/orders-by-client/<client_id>" : update view
 
 ' === CONNEXIONS FRONTEND ===
 RapportConsolideView --> CommandesClient

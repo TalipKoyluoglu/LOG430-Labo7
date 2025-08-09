@@ -1,7 +1,7 @@
 @startuml vue-implementation
 left to right direction
 allowmixing
-title Vue d'Implémentation - Architecture Microservices DDD
+title Vue d'Implémentation - Lab6 Orchestrée + Lab7 Événementielle
 
 ' === FRONTEND ORCHESTRATEUR ===
 package "Frontend Orchestrateur (Django)" {
@@ -195,5 +195,48 @@ DDDValiderDemandeAPI --> ValiderDemandeUseCase
 ValiderDemandeUseCase --> WorkflowValidation
 DDDClientAPI --> CreerCompteClientUseCase
 CreerCompteClientUseCase --> Client
+
+' === LAB7 COMMON & WORKERS (Pub/Sub, CQRS, Event Store) ===
+package "Lab7 - Eventing" <<Integration>> {
+  package "common" {
+    class "RedisEventBus" <<Library>>
+    class "metrics" <<Library>> {
+      +events_published_total
+      +events_consumed_total
+      +event_latency_seconds
+      +saga_choreo_started_total
+      +saga_choreo_success_total
+      +saga_choreo_failed_total
+    }
+  }
+
+  package "Workers" {
+    class "stock_reservation_worker" <<Consumer>>
+    class "order_creation_worker" <<Consumer>>
+    class "stock_compensation_worker" <<Consumer>>
+    class "notification_worker" <<Consumer>>
+    class "audit_worker" <<Consumer>>
+    class "cqrs_projection_worker" <<Consumer>>
+  }
+
+  class "event_store (Flask)" <<ReadAPI>> {
+    +/streams/{stream}/events
+    +/replay/checkout/{checkout_id}
+    +/cqrs/orders-by-client/{client_id}
+  }
+}
+
+' === RELATIONS PUB/SUB (Lab7) ===
+DDDCheckoutAPI ..> stock_reservation_worker : publish CheckoutInitiated
+stock_reservation_worker ..> DDDInventaireAPI : HTTP diminuer/augmenter stock
+stock_reservation_worker ..> order_creation_worker : publish StockReserved/Failed
+order_creation_worker ..> DDDVenteViewSet : HTTP enregistrer-vente
+order_creation_worker ..> stock_compensation_worker : publish OrderCreationFailed
+order_creation_worker ..> DDDCheckoutAPI : publish CheckoutSucceeded
+stock_compensation_worker ..> DDDInventaireAPI : HTTP compensation
+stock_compensation_worker ..> DDDCheckoutAPI : publish CheckoutFailed
+notification_worker ..> DDDCheckoutAPI : consume all
+audit_worker ..> DDDCheckoutAPI : consume all
+cqrs_projection_worker ..> "event_store (Flask)" : update read model
 
 @enduml

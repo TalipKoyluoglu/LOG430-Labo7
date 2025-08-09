@@ -17,7 +17,7 @@ from django.http import HttpResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from application.saga_orchestrator import SagaOrchestrator
-from domain.entities import SagaCommande, LigneCommande, EtatSaga
+from domain.entities import SagaCommande, LigneCommande, EtatSaga, TypeEvenement
 from domain.exceptions import (
     SagaException,
     StockInsuffisantException,

@@ -65,6 +65,116 @@ services:
       - redis_data:/data
     restart: unless-stopped
 
+  # Event Store (read-only API on Redis Streams)
+  event-store:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./lab7/event_store:/app
+      - ./requirements.txt:/requirements.txt
+    command: sh -c "pip install --no-cache-dir flask redis && flask --app app:app run --host=0.0.0.0 --port=7010"
+    ports:
+      - "7010:7010"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  notification-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - METRICS_PORT=9100
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis prometheus_client && python /app/lab7/consumers/notification_worker.py"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  audit-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - METRICS_PORT=9101
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis prometheus_client && python /app/lab7/consumers/audit_worker.py"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  cqrs-projection-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - METRICS_PORT=9105
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis prometheus_client && python /app/lab7/consumers/cqrs_projection_worker.py"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Workers de chorégraphie (lancés manuellement ou via docker-compose si souhaité)
+  stock-reservation-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - KONG_URL=http://kong:8000
+      - API_KEY=magasin-secret-key-2025
+      - METRICS_PORT=9102
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis requests prometheus_client && python /app/lab7/consumers/stock_reservation_worker.py"
+    depends_on:
+      - redis
+      - kong
+    restart: unless-stopped
+
+  order-creation-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - KONG_URL=http://kong:8000
+      - API_KEY=magasin-secret-key-2025
+      - METRICS_PORT=9103
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis requests prometheus_client && python /app/lab7/consumers/order_creation_worker.py"
+    depends_on:
+      - redis
+      - kong
+    restart: unless-stopped
+
+  stock-compensation-worker:
+    image: python:3.12-slim
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - REDIS_URL=redis://redis:6379/0
+      - KONG_URL=http://kong:8000
+      - API_KEY=magasin-secret-key-2025
+      - METRICS_PORT=9104
+    volumes:
+      - ./lab7:/app/lab7
+    command: sh -c "pip install --no-cache-dir redis requests prometheus_client && python /app/lab7/consumers/stock_compensation_worker.py"
+    depends_on:
+      - redis
+      - kong
+    restart: unless-stopped
+
   produits-db:
     image: postgres:15
     environment:
@@ -307,6 +417,7 @@ services:
         condition: service_started
     volumes:
       - ./service-ecommerce:/app
+      - ./lab7:/app/lab7
     command: >
       sh -c "python manage.py migrate &&
              python manage.py loaddata initial_data.json &&

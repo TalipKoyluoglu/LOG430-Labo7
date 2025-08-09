@@ -1,204 +1,180 @@
-# LOG430 – Laboratoire 5 : Architecture Microservices DDD
+# LOG430 – Labo 7: Architecture Événementielle (Pub/Sub, Event Sourcing, CQRS, Saga Chorégraphiée)
 
 ## Présentation
-Ce laboratoire transforme une application multi-magasins monolithique en une architecture microservices basée sur les principes du Domain-Driven Design (DDD). Le système distribué met en œuvre 5 microservices autonomes avec des bounded contexts distincts, orchestrés par une API Gateway Kong et supportés par une infrastructure complète d'observabilité.
+Ce laboratoire étend l'architecture microservices DDD des labos précédents avec une approche événementielle complète:
+- Pub/Sub via Redis Streams (plusieurs abonnés)
+- Event Sourcing (historique persistant + replay)
+- CQRS (projections de lecture dédiées)
+- Saga chorégraphiée (coordination sans orchestrateur central)
+- Observabilité (Prometheus, Grafana)
 
-## Architecture globale
+Références utiles:
+- Documentation d’architecture: `docs/arc42.md`
+- Diagrammes UML: `docs/UML/` (déploiement, logique, cas d’utilisation, séquence, machine d’état)
 
-### Microservices DDD
-- **service-catalogue** : Gestion des produits et du catalogue (3 instances load-balancées)
-- **service-inventaire** : Gestion des stocks et demandes de réapprovisionnement  
-- **service-commandes** : Gestion des ventes et rapports commerciaux
-- **service-supply-chain** : Validation des processus de réapprovisionnement
-- **service-ecommerce** : Interface e-commerce et processus de checkout
+## Composants ajoutés (répertoire `lab7/`)
 
-### Infrastructure
-- **API Gateway** : Kong (routage, load balancing, authentification par clé API)
-- **Frontend** : Django avec clients HTTP dédiés pour chaque microservice
-- **Bases de données** : 7 instances PostgreSQL dédiées par bounded context
-- **Cache** : Redis pour optimisation des performances
-- **Observabilité** : Prometheus (métriques), Grafana (dashboards), logging distribué
+- `common/event_bus.py` – Wrapper Redis Streams (publish/subscribe, groups)
+- `common/metrics.py` – Compteurs/histogrammes Prometheus (pub/consommation/latence, succès/échec saga)
+- `event_store/app.py` – API Flask d’Event Store (lecture/replay/projections CQRS)
+  - `GET /api/event-store/streams/<stream>/events`
+  - `GET /api/event-store/replay/checkout/<checkout_id>`
+  - `GET /api/event-store/cqrs/orders-by-client/<client_id>`
+- `consumers/notification_worker.py` – Abonné de notification (metrics: 9100)
+- `consumers/audit_worker.py` – Abonné d’audit (metrics: 9101)
+- `consumers/stock_reservation_worker.py` – Réservation stock (group: choreo-reservation, metrics: 9102)
+- `consumers/order_creation_worker.py` – Création commande (group: choreo-order, metrics: 9103)
+- `consumers/stock_compensation_worker.py` – Compensation stock (group: choreo-compensation, metrics: 9104)
+- `consumers/cqrs_projection_worker.py` – Projection CQRS (group: checkout-cqrs, metrics: 9105)
 
-## Bounded Contexts et Domaines
+Service e-commerce (modifié):
+- Endpoint asynchrone: `POST /api/commandes/clients/{client_id}/checkout/choreo/`
+- Publie: `CheckoutInitiated`, `CheckoutSucceeded`, `CheckoutFailed`
 
-### 1. Catalogue (service-catalogue)
-- **Entités** : Produit, Catégorie, Fournisseur
-- **Ports** : 8001, 8006, 8007 (load balancing)
-- **Responsabilités** : CRUD produits, gestion catalogue, recherche
+## Démarrage rapide
 
-### 2. Inventaire (service-inventaire) 
-- **Entités** : Stock, DemandeReappro, Mouvement
-- **Port** : 8002
-- **Responsabilités** : Suivi stocks, alertes, demandes réapprovisionnement
+Prérequis: Docker et Docker Compose; ports libres: 6379 (Redis), 7010 (Event Store), 9090 (Prometheus), 3000 (Grafana), 8080/8081 (Kong), 8001-8007 (services).
 
-### 3. Commandes (service-commandes)
-- **Entités** : Vente, LigneVente, Rapport
-- **Port** : 8003  
-- **Responsabilités** : Enregistrement ventes, rapports commerciaux
-
-### 4. Supply Chain (service-supply-chain)
-- **Entités** : ValidationReappro, ProcessusValidation
-- **Port** : 8004
-- **Responsabilités** : Workflow validation réapprovisionnement (3 étapes)
-
-### 5. E-commerce (service-ecommerce)
-- **Entités** : Panier, Commande, Paiement
-- **Port** : 8005
-- **Responsabilités** : Processus checkout e-commerce (4 phases)
-
-## Workflows Inter-Services
-
-### 1. Enregistrement de Vente
-```
-Employé → Frontend Django → CommandesClient → Kong → service-commandes → service-inventaire
-```
-Communication synchrone HTTP pour mise à jour immédiate des stocks.
-
-### 2. Validation Réapprovisionnement  
-```
-Manager → Frontend → SupplyChainClient → Kong → service-supply-chain
-```
-Workflow atomique en 3 étapes : validation produit, stock, fournisseur.
-
-### 3. Checkout E-commerce
-```
-Client → Frontend → EcommerceClient → service-ecommerce → service-catalogue + service-commandes
-```
-Processus en 4 phases : validation panier, réservation stock, paiement, confirmation.
-
-## Résultats de Performance
-
-| Métrique                    | Lab 4 (Monolithe) | Lab 5 (Microservices) | Amélioration |
-|-----------------------------|--------------------|-----------------------|--------------|
-| Latence moyenne             | 70.16ms            | 18.26ms               | -74%         |
-| Latence p95                 | 4.99s              | 45ms                  | -99%         |
-| Taux d'erreur               | 10.95%             | 0%                    | -100%        |
-| Débit maximal               | 100 req/s          | 500+ req/s            | +400%        |
-| Temps de réponse stable     | Non                | Oui                   | Stable       |
-
-## Utilisation rapide
-
-### Prérequis
-- Docker et Docker Compose installés
-- Ports 8001-8007, 8080-8081, 5432, 6379, 9090, 3000 disponibles
-
-### Lancement de l'architecture complète
+Lancer toute l’architecture:
 ```bash
-git clone https://github.com/TalipKoyluoglu/LOG430-Labo5
-cd LOG430-Labo5
 docker-compose up --build -d
 ```
 
-### Accès aux services
-- **Frontend Django** : http://localhost:8000/
-- **Kong API Gateway** : http://localhost:8080/ (proxy), http://localhost:8081/ (admin)
-- **Service Catalogue** : http://localhost:8001/, 8006/, 8007/ (load-balanced)
-- **Service Inventaire** : http://localhost:8002/
-- **Service Commandes** : http://localhost:8003/
-- **Service Supply Chain** : http://localhost:8004/
-- **Service E-commerce** : http://localhost:8005/
-- **Prometheus** : http://localhost:9090/
-- **Grafana** : http://localhost:3000/ (admin/admin)
+Accès principaux:
+- Kong (proxy/admin): `http://localhost:8080` / `http://localhost:8081`
+- Event Store (Flask): `http://localhost:7010`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (admin/admin)
+- Services: Catalogue `8001/8006/8007`, Inventaire `8002`, Commandes `8003`, Supply Chain `8004`, E-commerce `8005`
 
-### Tests des workflows
+Workers (exposent les métriques Prometheus):
+- notification (9100), audit (9101), stock-reservation (9102), order-creation (9103), stock-compensation (9104), cqrs-projection (9105)
+
+Notes internes (réseau Docker):
+- Les workers appellent Kong via `http://kong:8000` (variable `KONG_URL`)
+- L’Event Store lit Redis via `REDIS_URL=redis://redis:6379/0`
+
+## Tester le checkout chorégraphié (succès)
+
+1) Initier un checkout (via Kong):
 ```bash
-# Tests d'intégration Kong Gateway
-python -m pytest tests/integration/test_kong_gateway.py -v
+CLIENT_UUID=<UUID_CLIENT>
+PRODUIT_UUID=<UUID_PRODUIT>
 
-# Tests E2E orchestration frontend  
-python -m pytest tests/e2e/test_frontend_orchestration.py -v
-
-# Tests de charge
-k6 run scripts/load_test_microservices.js
+curl -s -X POST \
+  http://localhost:8080/ecommerce/api/commandes/clients/$CLIENT_UUID/checkout/choreo/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "panier": { "lignes": [ { "produit_id": "'$PRODUIT_UUID'", "quantite": 1 } ] },
+    "adresse_livraison": { "rue": "1 rue A", "ville": "MTL", "code_postal": "H1H1H1" }
+  }'
+# Réponse: { "accepted": true, "checkout_id": "...", "follow": "http://localhost:7010/api/event-store/replay/checkout/..." }
 ```
 
-## Structure du projet
+2) Suivre l’exécution (replay Event Store):
+```bash
+CHECKOUT_ID=<ID_REPONSE>
+curl -s http://localhost:7010/api/event-store/replay/checkout/$CHECKOUT_ID | jq
+```
+
+3) Vérifier la projection CQRS (par client):
+```bash
+curl -s http://localhost:7010/api/event-store/cqrs/orders-by-client/$CLIENT_UUID | jq
+```
+
+## Simuler des échecs
+
+1) Stock insuffisant (StockReservationFailed):
+```bash
+curl -s -X POST \
+  http://localhost:8080/ecommerce/api/commandes/clients/$CLIENT_UUID/checkout/choreo/ \
+  -H 'Content-Type: application/json' \
+  -d '{ "panier": { "lignes": [ { "produit_id": "'$PRODUIT_UUID'", "quantite": 999999 } ] } }'
+```
+Puis rejouer l’état:
+```bash
+curl -s http://localhost:7010/api/event-store/replay/checkout/$CHECKOUT_ID | jq
+# Attendu: status=failed, reason=StockReservationFailed, éventuel StockReleased
+```
+
+2) Échec création commande (OrderCreationFailed):
+Stopper temporairement le service commandes pour simuler l’échec:
+```bash
+docker-compose stop commandes-service
+# lancer un checkout normal…
+docker-compose start commandes-service
+```
+Rejouer l’état pour observer `OrderCreationFailed` → `CheckoutFailed` et la compensation (StockReleased).
+
+## Event Store – Endpoints utiles
+```bash
+# Derniers événements du topic checkout
+curl -s 'http://localhost:7010/api/event-store/streams/ecommerce.checkout.events/events?count=100' | jq
+
+# Replay d'un checkout précis
+curl -s http://localhost:7010/api/event-store/replay/checkout/$CHECKOUT_ID | jq
+
+# Projection CQRS (read model) par client
+curl -s http://localhost:7010/api/event-store/cqrs/orders-by-client/$CLIENT_UUID | jq
+```
+
+## Observabilité & métriques
+
+Prometheus (config `config/prometheus.yml`) scrape:
+- `lab7-workers` (9100-9105)
+- `ecommerce-service` (8005)
+- `saga-orchestrator` (8009) – pour comparaison avec le Labo 6
+
+Métriques clés (workers Labo 7):
+- `events_published_total{topic,type}`
+- `events_consumed_total{topic,type,consumer}`
+- `event_latency_seconds{topic,type}`
+- `saga_choreo_success_total{source}` / `saga_choreo_failed_total{source}`
+
+Idées de dashboards Grafana:
+- Taux succès/échec par type d’événement et par worker
+- Débit pub/consommation par topic
+- Latence end-to-end (P50/P95) orchestrée vs chorégraphiée
+
+## Débogage & tips
+
+Inspecter les consumer groups Redis Streams:
+```bash
+docker exec -it redis redis-cli XINFO GROUPS ecommerce.checkout.events
+```
+
+Suivre les logs d’un worker:
+```bash
+docker logs -f stock-reservation-worker
+docker logs -f order-creation-worker
+docker logs -f stock-compensation-worker
+```
+
+Vérifier la consommation/publication:
+```bash
+docker logs -f audit-worker | grep -i consumed
+```
+
+## Variables d’environnement (extraits)
+
+- `REDIS_URL` (par défaut `redis://redis:6379/0`)
+- `KONG_URL` (accès interne containers, ex: `http://kong:8000`)
+- `API_KEY` (si plugin d’auth sur Kong)
+- `METRICS_PORT` (exposition Prometheus sur chaque worker)
+
+## Structure (extrait)
 ```plaintext
-LOG430-Labo5/
-├── services/
-│   ├── service-catalogue/    # Microservice catalogue (DDD)
-│   ├── service-inventaire/   # Microservice inventaire
-│   ├── service-commandes/    # Microservice commandes
-│   ├── service-supply-chain/ # Microservice supply chain
-│   └── service-ecommerce/    # Microservice e-commerce
-├── frontend-magasin/         # Django frontend avec clients HTTP
-├── kong/                     # Configuration Kong Gateway
-├── tests/
-│   ├── integration/          # Tests Kong, workflows inter-services
-│   └── e2e/                  # Tests orchestration frontend
+LOG430-Labo7/
+├── lab7/
+│   ├── common/
+│   ├── consumers/
+│   └── event_store/
+├── service-*/
+├── config/
 ├── docs/
-│   ├── UML/                  # Diagrammes architecture (PlantUML)
-│   └── arc42.md              # Documentation architecture Arc42
-├── scripts/                  # Scripts de test de charge k6
-├── docker-compose.yml        # Orchestration complète
-└── README.md
+└── docker-compose.yml
 ```
 
-## Communication Inter-Services
-
-### Protocole HTTP Synchrone
-- **Gateway** : Kong avec routage par préfixes (`/catalogue/`, `/inventaire/`, etc.)
-- **Authentification** : Clés API Kong pour sécurisation
-- **Load Balancing** : Round-robin automatique sur service-catalogue
-- **Format** : JSON REST standardisé entre tous les services
-
-### Clients HTTP Dédiés (Frontend)
-```python
-# Exemple d'utilisation
-catalogue_client = CatalogueClient()
-produits = catalogue_client.get_produits()
-
-commandes_client = CommandesClient()  
-commandes_client.enregistrer_vente(vente_data)
-```
-
-## Observabilité Distribuée
-
-### Métriques Prometheus
-- Latence par microservice et endpoint
-- Débit de requêtes inter-services  
-- Statuts de santé des services
-- Métriques métier (stocks, ventes, validations)
-
-### Dashboards Grafana
-- Vue d'ensemble architecture microservices
-- Performance par bounded context
-- Workflows inter-services en temps réel
-- Alertes sur indisponibilité services
-
-### Logging Distribué
-- Correlation IDs pour traçage inter-services
-- Logs JSON structurés par service
-- Centralisation pour debugging workflows
-
-## Tests et Qualité
-
-### Tests d'Intégration
-- Communication Kong Gateway ↔ Microservices
-- Workflows inter-services complets
-- Load balancing et failover
-
-### Tests End-to-End  
-- Orchestration frontend Django
-- Scenarios métier complets
-- Validation bounded contexts
-
-### Tests de Charge
-- Performance sous charge distribué
-- Scalabilité horizontale
-- Resilience aux pannes
-
-## Pipeline CI/CD
-Configuration GitHub Actions pour :
-- Build et tests de tous les microservices
-- Tests d'intégration Kong Gateway  
-- Tests E2E orchestration frontend
-- Déploiement containerisé coordonné
-
-## Documentation Architecture
-- **Arc42** : [`docs/arc42.md`](docs/arc42.md) - Architecture complète
-- **UML** : [`docs/UML/`](docs/UML/) - Diagrammes PlantUML (déploiement, logique, cas d'utilisation)
-- **API** : Documentation Swagger par microservice
-
-## Auteur
-Projet réalisé par Talip Koyluoglu dans le cadre du cours LOG430.
+## Documentation
+- Arc42: `docs/arc42.md`
+- UML: `docs/UML/`

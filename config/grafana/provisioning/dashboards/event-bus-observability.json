@@ -1,0 +1,95 @@
+{
+  "title": "Event Bus & Saga Choreography",
+  "uid": "event-bus-choreo",
+  "tags": ["events", "redis", "saga", "LOG430"],
+  "timezone": "",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Events Published (rate)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (topic,type) (rate(events_published_total[5m]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Events Consumed (rate)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (topic,type,consumer) (rate(events_consumed_total[5m]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Event Latency (P50/P95)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "histogram_quantile(0.5, sum by (le,topic,type) (rate(event_latency_seconds_bucket[5m])))", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum by (le,topic,type) (rate(event_latency_seconds_bucket[5m])))", "refId": "B"}
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Distribution par Type (Consommés)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (type) (events_consumed_total)", "refId": "A"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Workers Up (Targets)",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "count(up{job=\"lab7-workers\"}==1)", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Saga Choreo Flow (key events)",
+      "gridPos": {"h": 6, "w": 18, "x": 6, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum by (type) (rate(events_published_total{type=~\"CheckoutInitiated|StockReserved|OrderCreated|CheckoutSucceeded|CheckoutFailed\"}[5m]))", "refId": "A"}
+      ]
+    }
+    ,{
+      "type": "stat",
+      "title": "Saga Choreography Started",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(saga_choreo_started_total)", "refId": "A"}
+      ]
+    }
+    ,{
+      "type": "stat",
+      "title": "Saga Choreography Success",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(saga_choreo_success_total)", "refId": "A"}
+      ]
+    }
+    ,{
+      "type": "stat",
+      "title": "Saga Choreography Failed",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "sum(saga_choreo_failed_total)", "refId": "A"}
+      ]
+    }
+  ]
+}
+
+

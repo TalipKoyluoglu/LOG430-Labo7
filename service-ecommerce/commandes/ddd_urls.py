@@ -7,6 +7,7 @@ from .views import (
     checkout_ecommerce,
     verifier_prerequis_checkout,
     historique_commandes_client,
+    checkout_ecommerce_choreo,
 )
 
 urlpatterns = [
@@ -15,6 +16,12 @@ urlpatterns = [
         "clients/<uuid:client_id>/checkout/",
         checkout_ecommerce,
         name="checkout-ecommerce",
+    ),
+    # Variante chorégraphiée (publie uniquement l'initiation et laisse les consommateurs orchestrer)
+    path(
+        "clients/<uuid:client_id>/checkout/choreo/",
+        checkout_ecommerce_choreo,
+        name="checkout-ecommerce-choreo",
     ),
     # API de vérification des prérequis pour check-out
     path(

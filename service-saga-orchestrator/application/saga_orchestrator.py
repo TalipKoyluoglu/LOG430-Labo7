@@ -474,7 +474,7 @@ class SagaOrchestrator:
         
         saga.transitionner_vers(
             EtatSaga.COMPENSATION_EN_COURS,
-            TypeEvenement.COMPENSATION_TERMINEE,
+            TypeEvenement.COMPENSATION_DEMANDEE,
             message="Début de la compensation"
         )
         

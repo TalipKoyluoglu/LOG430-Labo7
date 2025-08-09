@@ -1,46 +1,38 @@
 @startuml scenario-checkout-ecommerce
-title Scénario 3: Workflow E-commerce Complet - Panier à Commande Finale
+title Scénario Checkout - Lab6 (Orchestrée) vs Lab7 (Chorégraphiée)
 
 actor "Client Web" as Client
 participant "Frontend E-commerce" as Frontend
-participant "EcommerceClient" as EcoClient
 participant "Kong Gateway" as Kong
 participant "service-ecommerce:8005" as EcommerceService
-participant "CreerCompteClientUseCase" as ClientUC
-participant "AjouterProduitPanierUseCase" as PanierUC
 participant "service-catalogue:8001" as CatalogueService
-participant "ecommerce_db" as EcoDB
-participant "produits_db" as ProdDB
+participant "service-commandes:8003" as Commandes
+participant "service-inventaire:8002" as Inventaire
+participant "Redis Streams (topic: ecommerce.checkout.events)" as Bus
+participant "stock_reservation_worker" as WRes
+participant "order_creation_worker" as WOrd
+participant "stock_compensation_worker" as WComp
 
-== Phase 1: Création compte client ==
-Client -> Frontend : Inscription e-commerce\n/clients/creer-compte/
-Frontend -> EcoClient : creer_compte_client(prenom, nom, email, adresse)
-EcoClient -> Kong : POST /api/ecommerce/api/clients/\n{prenom, nom, email, adresse_complete}
-Kong -> EcommerceService : Route vers service-ecommerce
+== Lab6 (Orchestrée) ==
+Client -> Frontend : POST /checkout (synchrone)
+Frontend -> Kong : /api/ecommerce/commandes/clients/{id}/checkout/
+Kong -> EcommerceService : orchestré
+EcommerceService -> Inventaire : vérifier puis diminuer stock
+EcommerceService -> Commandes : créer vente
+EcommerceService --> Client : 201/400 selon succès
 
-EcommerceService -> ClientUC : execute(donnees_client)
-note right of ClientUC : **Validation DDD:**\n• Value Object: EmailClient\n• Value Object: AdresseLivraison\n• Entité: Client avec règles métier
-
-ClientUC -> EcoDB : INSERT INTO client (prenom, nom, email, adresse_rue, adresse_ville)\nVALUES (?, ?, ?, ?, ?)
-EcoDB -> ClientUC : client_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-ClientUC -> EcommerceService : {"success": true, "client_id": "aaaaaaaa-..."}
-EcommerceService -> Frontend : Compte créé avec succès
-Frontend -> Client : "Compte créé ! Vous pouvez maintenant commander"
-
-== Phase 2: Ajout produits au panier ==
-Client -> Frontend : Recherche produit "Écran Gaming"
-Frontend -> EcoClient : rechercher_produits(nom="Écran Gaming")
-EcoClient -> Kong : GET /api/catalogue/api/ddd/catalogue/rechercher/?nom=Écran Gaming
-Kong -> CatalogueService : Route vers catalogue (load balancé)
-
-CatalogueService -> ProdDB : SELECT * FROM produit WHERE nom ILIKE '%Écran Gaming%'
-ProdDB -> CatalogueService : [{"id": "11111111-...", "nom": "Écran Gaming 24\"", "prix": 299.99}]
-CatalogueService -> Frontend : Liste produits trouvés
-
-Client -> Frontend : Clic "Ajouter au panier"\nproduit_id="11111111-...", quantite=2
-Frontend -> EcoClient : ajouter_produit_panier(client_id, produit_id, quantite)
-EcoClient -> Kong : POST /api/ecommerce/api/panier/clients/aaaaaaaa.../panier/\n{produit_id, quantite: 2}
-Kong -> EcommerceService : Route vers service-ecommerce
-
-EcommerceService -> PanierUC : execute(client_id, produit_id, quantite)
+== Lab7 (Chorégraphiée) ==
+Client -> Frontend : POST /checkout/choreo (async)
+Frontend -> Kong : /api/ecommerce/.../checkout/choreo/
+Kong -> EcommerceService : 202 Accepted + checkout_id
+EcommerceService -> Bus : publish CheckoutInitiated
+WRes -> Bus : consume CheckoutInitiated
+WRes -> Inventaire : diminuer-stock
+WRes -> Bus : publish StockReserved | StockReservationFailed
+WOrd -> Bus : consume StockReserved
+WOrd -> Commandes : enregistrer-vente
+WOrd -> Bus : publish OrderCreated, CheckoutSucceeded | OrderCreationFailed
+WComp -> Bus : consume OrderCreationFailed | StockReservationFailed
+WComp -> Inventaire : augmenter-stock
+WComp -> Bus : publish StockReleased, CheckoutFailed
 @enduml 

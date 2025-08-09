@@ -5,7 +5,8 @@ URL configuration for service-ecommerce project - Architecture DDD
 from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -41,6 +42,8 @@ urlpatterns = [
     path("api/clients/", include("clients.ddd_urls")),
     path("api/panier/", include("panier.ddd_urls")),
     path("api/commandes/", include("commandes.ddd_urls")),
+    # Prometheus metrics
+    path("metrics", lambda request: HttpResponse(generate_latest(), content_type=CONTENT_TYPE_LATEST)),
     # Health check
     path(
         "health/",

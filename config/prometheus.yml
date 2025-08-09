@@ -71,3 +71,22 @@ scrape_configs:
         target_label: service
         regex: '(.*)'
         replacement: 'saga-orchestrator' 
+
+  # Workers chorégraphiés (Prometheus client HTTP server)
+  - job_name: 'lab7-workers'
+    static_configs:
+      - targets:
+          - 'stock-reservation-worker:9102'
+          - 'order-creation-worker:9103'
+          - 'stock-compensation-worker:9104'
+          - 'notification-worker:9100'
+          - 'audit-worker:9101'
+
+  # Lab7 Consumers: expose default client metrics if needed in future
+  # Event Store (Flask) does not expose Prom metrics by default; skipped
+  - job_name: 'ecommerce-service'
+    static_configs:
+      - targets: ['ecommerce-service:8005']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s

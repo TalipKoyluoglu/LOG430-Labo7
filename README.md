@@ -1,6 +1,6 @@
 # LOG430 – Labo 7: Architecture Événementielle (Pub/Sub, Event Sourcing, CQRS, Saga Chorégraphiée)
-
-## Présentation
+Remodification du code pour tester le ai 
+# Présentation
 Ce laboratoire étend l'architecture microservices DDD des labos précédents avec une approche événementielle complète:
 - Pub/Sub via Redis Streams (plusieurs abonnés)
 - Event Sourcing (historique persistant + replay)
@@ -178,3 +178,7 @@ LOG430-Labo7/
 ## Documentation
 - Arc42: `docs/arc42.md`
 - UML: `docs/UML/`
+// test change for demo
+// second test
+// second test
+// third change

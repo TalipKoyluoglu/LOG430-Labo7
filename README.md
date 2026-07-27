@@ -1,6 +1,6 @@
 # LOG430 – Labo 7: Architecture Événementielle (Pub/Sub, Event Sourcing, CQRS, Saga Chorégraphiée)
-Test avec le nouveau calcul de score
-## Présentation
+Test pour le nouveau calcul du score avec le calcul sur 20 avec la branche main avec la github app de configuré avec les clés et test de openai/gpt-oss-120b
+# Présentation
 Ce laboratoire étend l'architecture microservices DDD des labos précédents avec une approche événementielle complète:
 - Pub/Sub via Redis Streams (plusieurs abonnés)
 - Event Sourcing (historique persistant + replay)
@@ -178,8 +178,7 @@ LOG430-Labo7/
 ## Documentation
 - Arc42: `docs/arc42.md`
 - UML: `docs/UML/`
-
-
-
-
-## Ajout de commentaire pour la création et le test de la PR, mais cette fois-ci version v4
+// test change for demo
+// second test
+// second test
+// third change

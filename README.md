@@ -1,5 +1,5 @@
 # LOG430 – Labo 7: Architecture Événementielle (Pub/Sub, Event Sourcing, CQRS, Saga Chorégraphiée)
-Remodification du code pour tester le ai 
+Test pour le nouveau calcul du score avec le calcul sur 20
 # Présentation
 Ce laboratoire étend l'architecture microservices DDD des labos précédents avec une approche événementielle complète:
 - Pub/Sub via Redis Streams (plusieurs abonnés)

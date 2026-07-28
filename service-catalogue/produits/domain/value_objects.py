@@ -84,6 +84,16 @@ class PrixMonetaire:
         nouveau_montant = self.montant * (Decimal("100") - pourcentage) / Decimal("100")
         return PrixMonetaire(nouveau_montant, self.devise)
 
+    def appliquer_taxe(self, taux_taxe: Decimal) -> "PrixMonetaire":
+        """
+        Applique un taux de taxe et retourne un nouveau prix taxes incluses
+        """
+        if taux_taxe < 0:
+            raise ValueError("Le taux de taxe ne peut pas être négatif")
+
+        nouveau_montant = self.montant * (Decimal("100") + taux_taxe) / Decimal("100")
+        return PrixMonetaire(nouveau_montant, self.devise)
+
     def est_gratuit(self) -> bool:
         """
         Vérifie si le produit est gratuit
